@@ -11,7 +11,7 @@ __pycache__/
 *$py.class
 
 .vscode/
-
+.pytest_cache
 # C extensions
 *.so
 
@@ -227,3 +227,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# SQLite local data and sidecar files (schema.sql is tracked)
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
