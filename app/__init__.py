@@ -33,4 +33,10 @@ def create_app(test_config=None):
 
     # アプリを作ってから、そのアプリへ後片付け処理と管理コマンドを登録する。
     db.init_app(app)
+
+    from .routes.warehouses import warehouses_bp
+    from .routes.pages import pages_bp
+
+    app.register_blueprint(warehouses_bp, url_prefix="/api/v1")
+    app.register_blueprint(pages_bp)
     return app
