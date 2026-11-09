@@ -40,9 +40,18 @@ def database(app):
 def test_schema_is_the_approved_ddl():
     """SQLの指紋に相当するハッシュを比較し、正本と実行用SQLの改変を検知する。"""
     source = Path(__file__).resolve().parents[1] / "local-specs/database"
-    expected = "f7ae51da54d710414639429d120a62bbb13cf8f42131fce7d6ad40b7c5c55698"
-    assert sha256((source / "UnFire_SQLite_Schema_20261101.sql").read_bytes()).hexdigest() == expected
-    assert sha256(db.SCHEMA_PATH.read_bytes()).hexdigest() == expected
+    expected = "fd47d3e378641970b661096dfffe90db6671e4e95b63b0bf66c692b0f7ddfc01"
+
+    source_sql = (source / "UnFire_SQLite_Schema_20261101.sql").read_bytes()
+    schema_sql = db.SCHEMA_PATH.read_bytes()
+
+    # WindowsとLinuxの改行コードの違いを統一する。
+    source_sql = source_sql.replace(b"\r\n", b"\n")
+    schema_sql = schema_sql.replace(b"\r\n", b"\n")
+
+    assert sha256(source_sql).hexdigest() == expected
+    assert sha256(schema_sql).hexdigest() == expected
+
 
 
 def test_initialization_creates_full_empty_schema(database):
