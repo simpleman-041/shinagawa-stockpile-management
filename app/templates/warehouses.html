@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>倉庫一覧 | UnFire</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <p class="eyebrow">UnFire</p>
+        <h1>倉庫一覧</h1>
+        <p class="lead">登録されている倉庫を確認できます。</p>
+      </header>
+
+      <section class="panel" aria-labelledby="search-heading">
+        <h2 id="search-heading">検索条件</h2>
+        <form id="warehouse-search-form" class="search-form">
+          <label>
+            倉庫名・住所
+            <input id="warehouse-query" name="q" type="search" autocomplete="off">
+          </label>
+          <label>
+            座標
+            <select id="warehouse-coordinates" name="coordinates">
+              <option value="">すべて</option>
+              <option value="known">登録済み</option>
+              <option value="missing">未登録</option>
+            </select>
+          </label>
+          <button type="submit">検索</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="list-heading">
+        <div class="section-heading">
+          <h2 id="list-heading">倉庫</h2>
+          <span id="warehouse-count" class="count" aria-live="polite"></span>
+        </div>
+
+        <p id="warehouse-loading" class="status" role="status">読み込み中…</p>
+        <p id="warehouse-empty" class="status" hidden>条件に一致する倉庫はありません。</p>
+        <p id="warehouse-error" class="status error" role="alert" hidden></p>
+
+        <div class="table-wrap" id="warehouse-table-wrap" hidden>
+          <table>
+            <caption class="visually-hidden">倉庫一覧</caption>
+            <thead>
+              <tr>
+                <th scope="col">倉庫名</th>
+                <th scope="col">施設種別</th>
+                <th scope="col">住所</th>
+                <th scope="col">容量（m³）</th>
+                <th scope="col">座標</th>
+              </tr>
+            </thead>
+            <tbody id="warehouse-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/warehouses.js') }}" defer></script>
+  </body>
+</html>
