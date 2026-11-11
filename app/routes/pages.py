@@ -4,6 +4,7 @@ from flask import Blueprint, abort, render_template
 
 from app import db
 from app.services.items import get_item
+from app.services.shelters import get_shelter
 from app.services.warehouses import get_warehouse
 
 
@@ -53,3 +54,21 @@ def items_edit_page(item_id):
     if item is None:
         abort(404)
     return render_template("items_form.html", mode="edit", item=item)
+
+
+@pages_bp.get("/shelters")
+def shelters_page():
+    return render_template("shelters.html")
+
+
+@pages_bp.get("/shelters/new")
+def shelters_new_page():
+    return render_template("shelters_form.html", mode="create", shelter=None)
+
+
+@pages_bp.get("/shelters/<int:shelter_id>/edit")
+def shelters_edit_page(shelter_id):
+    shelter = get_shelter(db.get_db(), shelter_id)
+    if shelter is None:
+        abort(404)
+    return render_template("shelters_form.html", mode="edit", shelter=shelter)

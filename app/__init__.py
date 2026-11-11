@@ -36,9 +36,11 @@ def create_app(test_config=None):
 
     from .routes.warehouses import warehouses_bp
     from .routes.items import items_bp
+    from .routes.shelters import shelters_bp
     from .routes.pages import pages_bp
 
     app.register_blueprint(warehouses_bp, url_prefix="/api/v1")
     app.register_blueprint(items_bp, url_prefix="/api/v1")
+    app.register_blueprint(shelters_bp, url_prefix="/api/v1")
     app.register_blueprint(pages_bp)
     return app

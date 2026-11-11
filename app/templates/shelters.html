@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>避難所一覧 | UnFire</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <p class="eyebrow">UnFire</p>
+        <h1>避難所一覧</h1>
+        <p class="lead">避難所の住所、正式目標、設定状態を確認できます。</p>
+      </header>
+      <section class="panel" aria-labelledby="search-heading">
+        <div class="section-heading">
+          <h2 id="search-heading">検索条件</h2>
+          <a href="{{ url_for('pages.shelters_new_page') }}">避難所を登録</a>
+        </div>
+        <form id="shelter-search-form" class="search-form">
+          <label>
+            避難所名・住所
+            <input id="shelter-query" name="q" type="search" autocomplete="off">
+          </label>
+          <span></span>
+          <button type="submit">検索</button>
+        </form>
+      </section>
+      <section class="panel" aria-labelledby="list-heading">
+        <div class="section-heading">
+          <h2 id="list-heading">避難所</h2>
+          <span id="shelter-count" class="count" aria-live="polite"></span>
+        </div>
+        <p id="shelter-loading" class="status" role="status">読み込み中…</p>
+        <p id="shelter-empty" class="status" hidden>避難所がありません。</p>
+        <p id="shelter-error" class="status error" role="alert" hidden></p>
+        <div class="table-wrap" id="shelter-table-wrap" hidden>
+          <table>
+            <caption class="visually-hidden">避難所一覧</caption>
+            <thead>
+              <tr>
+                <th scope="col">名称</th>
+                <th scope="col">住所</th>
+                <th scope="col">正式目標</th>
+                <th scope="col">設定状態</th>
+                <th scope="col">操作</th>
+              </tr>
+            </thead>
+            <tbody id="shelter-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/shelters.js') }}" defer></script>
+  </body>
+</html>
