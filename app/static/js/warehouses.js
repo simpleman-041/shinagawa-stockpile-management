@@ -36,6 +36,11 @@
       td.textContent = text(value);
       tr.appendChild(td);
     });
+    const actionCell = document.createElement("td");
+    const editLink = document.createElement("a");
+    editLink.href = `/warehouses/${warehouse.warehouse_id}/edit`;  editLink.textContent = "編集";
+    actionCell.appendChild(editLink);
+    tr.appendChild(actionCell);
     return tr;
   }
 
