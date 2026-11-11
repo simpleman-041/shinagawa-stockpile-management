@@ -99,6 +99,70 @@ def test_get_warehouses_returns_empty_success(client, seeded_database):
     }
 
 
+def test_post_warehouse_creates_row_and_returns_location(client):
+    response = client.post(
+        "/api/v1/warehouses",
+        json={
+            "name": "新倉庫",
+            "facility_type": "避難所倉庫",
+            "address": "品川区東品川1-1",
+            "latitude": 35.6,
+            "longitude": 139.75,
+            "capacity_m3": 120.5,
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.headers["Location"].endswith("/api/v1/warehouses/1")
+    assert response.json["data"] == {
+        "warehouse_id": 1,
+        "name": "新倉庫",
+        "facility_type": "避難所倉庫",
+        "address": "品川区東品川1-1",
+        "latitude": 35.6,
+        "longitude": 139.75,
+        "capacity_m3": 120.5,
+        "allocation_mode": None,
+    }
+
+
+def test_post_warehouse_rejects_one_coordinate(client):
+    response = client.post(
+        "/api/v1/warehouses",
+        json={
+            "name": "新倉庫",
+            "facility_type": "避難所倉庫",
+            "address": "品川区東品川1-1",
+            "latitude": 35.6,
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json["error"]["fields"][0]["code"] == "COORDINATE_PAIR_REQUIRED"
+
+
+def test_patch_warehouse_updates_row(client, seeded_database):
+    response = client.patch(
+        "/api/v1/warehouses/1",
+        json={"name": "更新後倉庫", "capacity_m3": None},
+    )
+
+    assert response.status_code == 200
+    assert response.json["data"]["name"] == "更新後倉庫"
+    assert response.json["data"]["capacity_m3"] is None
+    assert response.json["data"]["facility_type"] == "避難所倉庫"
+
+
+def test_patch_warehouse_returns_not_found(client, seeded_database):
+    response = client.patch(
+        "/api/v1/warehouses/999",
+        json={"name": "存在しない倉庫"},
+    )
+
+    assert response.status_code == 404
+    assert response.json["error"]["code"] == "NOT_FOUND"
+
+
 @pytest.mark.parametrize(
     "query",
     [

@@ -15,11 +15,18 @@
       </header>
 
       <section class="panel" aria-labelledby="search-heading">
-        <h2 id="search-heading">検索条件</h2>
-        <form id="warehouse-search-form" class="search-form">
-          <label>
-            倉庫名・住所
-            <input id="warehouse-query" name="q" type="search" autocomplete="off">
+        <div class="section-heading">
+          <h2 id="search-heading">検索条件</h2>
+          <a
+          href="{{ url_for('pages.warehouses_new_page') }}"
+          class="button">
+          倉庫を登録
+        </a>
+      </div>
+      <form id="warehouse-search-form" class="search-form">
+        <label>
+          倉庫名・住所
+          <input id="warehouse-query" name="q" type="search" autocomplete="off">
           </label>
           <label>
             座標
@@ -53,6 +60,7 @@
                 <th scope="col">住所</th>
                 <th scope="col">容量（m³）</th>
                 <th scope="col">座標</th>
+                <th scope="col">操作</th>
               </tr>
             </thead>
             <tbody id="warehouse-table-body"></tbody>
