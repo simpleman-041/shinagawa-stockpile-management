@@ -163,6 +163,70 @@ def test_patch_warehouse_returns_not_found(client, seeded_database):
     assert response.json["error"]["code"] == "NOT_FOUND"
 
 
+def test_thresholds_distinguish_unset_from_zero(client, seeded_database):
+    with client.application.app_context():
+        connection = db.get_db()
+        with db.transaction(connection):
+            connection.execute(
+                """
+                INSERT INTO items
+                    (item_id, name, category, quantity_unit, unit_volume_m3,
+                     is_divisible, near_expiry_days, registration_state)
+                VALUES (1, '飲料水', '飲料', '本', NULL, 0, 30, 'active')
+                """
+            )
+
+    before = client.get("/api/v1/warehouses/1/thresholds")
+    assert before.status_code == 200
+    assert before.json == {"data": []}
+
+    created = client.put(
+        "/api/v1/warehouses/1/thresholds/1",
+        json={"minimum_quantity": 0},
+    )
+    assert created.status_code == 201
+    assert created.json["data"]["minimum_quantity"] == 0
+
+    after = client.get("/api/v1/warehouses/1/thresholds")
+    assert after.json["data"] == [
+        {"warehouse_id": 1, "item_id": 1, "minimum_quantity": 0}
+    ]
+
+
+def test_threshold_update_and_validation(client, seeded_database):
+    with client.application.app_context():
+        connection = db.get_db()
+        with db.transaction(connection):
+            connection.executemany(
+                """
+                INSERT INTO items
+                    (item_id, name, category, quantity_unit, unit_volume_m3,
+                     is_divisible, near_expiry_days, registration_state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (1, "分割不可", "分類", "個", None, 0, 30, "active"),
+                    (2, "分割可能", "分類", "kg", None, 1, 30, "active"),
+                ],
+            )
+
+    first = client.put(
+        "/api/v1/warehouses/1/thresholds/2", json={"minimum_quantity": 1.25}
+    )
+    assert first.status_code == 201
+    updated = client.put(
+        "/api/v1/warehouses/1/thresholds/2", json={"minimum_quantity": 2.5}
+    )
+    assert updated.status_code == 200
+    assert updated.json["data"]["minimum_quantity"] == 2.5
+
+    rejected = client.put(
+        "/api/v1/warehouses/1/thresholds/1", json={"minimum_quantity": 1.5}
+    )
+    assert rejected.status_code == 422
+    assert rejected.json["error"]["fields"][0]["code"] == "UNIT_PRECISION"
+
+
 @pytest.mark.parametrize(
     "query",
     [

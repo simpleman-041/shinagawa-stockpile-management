@@ -1,16 +1,20 @@
 """倉庫に関するJSON API。"""
 
 import math
+from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, jsonify, request, url_for
 from werkzeug.exceptions import BadRequest
 
 from app import db
 from app.services.warehouses import (
+    ThresholdUnitError,
     get_warehouse,
+    list_thresholds,
     list_warehouses,
     patch_warehouse,
     post_warehouse,
+    put_threshold,
 )
 
 
@@ -220,6 +224,62 @@ def _parse_non_negative_integer(name, value, *, minimum=0, maximum=None):
     return parsed, None
 
 
+def _validate_threshold_body(body):
+    if set(body) != {"minimum_quantity"}:
+        return _error_response(
+            "UNKNOWN_FIELD",
+            "Only minimum_quantity is allowed.",
+            status=422,
+            fields=_field_error(
+                "/body", "THRESHOLD_FIELDS_REQUIRED", "Only minimum_quantity is allowed."
+            ),
+        )
+
+    value = body["minimum_quantity"]
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return _error_response(
+            "VALIDATION_ERROR",
+            "minimum_quantity must be a number.",
+            status=422,
+            fields=_field_error(
+                "/body/minimum_quantity", "NUMBER_REQUIRED", "minimum_quantity must be a number."
+            ),
+        )
+
+    try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        decimal_value = None
+    if decimal_value is None or not decimal_value.is_finite():
+        return _error_response(
+            "VALIDATION_ERROR",
+            "minimum_quantity must be finite.",
+            status=422,
+            fields=_field_error(
+                "/body/minimum_quantity", "NUMBER_REQUIRED", "minimum_quantity must be finite."
+            ),
+        )
+    if decimal_value < 0 or decimal_value > Decimal("1.7976931348623157e308"):
+        return _error_response(
+            "VALIDATION_ERROR",
+            "minimum_quantity must be non-negative.",
+            status=422,
+            fields=_field_error(
+                "/body/minimum_quantity", "OUT_OF_RANGE", "minimum_quantity must be non-negative."
+            ),
+        )
+    if max(0, -decimal_value.as_tuple().exponent) > 2:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "minimum_quantity allows at most 2 decimal places.",
+            status=422,
+            fields=_field_error(
+                "/body/minimum_quantity", "DECIMAL_SCALE", "At most 2 decimal places are allowed."
+            ),
+        )
+    return decimal_value
+
+
 @warehouses_bp.get("/warehouses")
 def get_warehouses():
     unknown = set(request.args) - _ALLOWED_QUERY_KEYS
@@ -314,6 +374,55 @@ def post_warehouses():
     return response
 
 
+@warehouses_bp.get("/warehouses/<int:warehouse_id>/thresholds")
+def get_warehouse_thresholds(warehouse_id):
+    if get_warehouse(db.get_db(), warehouse_id) is None:
+        return _error_response("NOT_FOUND", "Warehouse not found.", status=404)
+    try:
+        thresholds = list_thresholds(db.get_db(), warehouse_id)
+    except Exception:
+        return _error_response(
+            "INTERNAL_ERROR", "Could not retrieve thresholds.", status=500
+        )
+    return jsonify(data=thresholds)
+
+
+@warehouses_bp.put("/warehouses/<int:warehouse_id>/thresholds/<int:item_id>")
+def put_warehouse_threshold(warehouse_id, item_id):
+    body, error = _json_object()
+    if error:
+        return error
+    value_or_error = _validate_threshold_body(body)
+    if not isinstance(value_or_error, Decimal):
+        return value_or_error
+
+    try:
+        threshold, created = put_threshold(
+            db.get_db(), warehouse_id, item_id, value_or_error
+        )
+    except ThresholdUnitError:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "A non-divisible item requires an integer threshold.",
+            status=422,
+            fields=_field_error(
+                "/body/minimum_quantity", "UNIT_PRECISION", "Decimals are not allowed."
+            ),
+        )
+    except Exception:
+        return _error_response(
+            "INTERNAL_ERROR", "Could not save threshold.", status=500
+        )
+
+    if threshold is None:
+        return _error_response(
+            "NOT_FOUND", "Warehouse or item not found.", status=404
+        )
+    response = jsonify(data=threshold)
+    response.status_code = 201 if created else 200
+    return response
+
+
 @warehouses_bp.get("/warehouses/<int:warehouse_id>")
 def get_warehouse_detail(warehouse_id):
     warehouse = get_warehouse(db.get_db(), warehouse_id)
@@ -362,3 +471,55 @@ def patch_warehouses(warehouse_id):
             "INTERNAL_ERROR", "倉庫を更新できませんでした。", status=500
         )
     return jsonify(data=warehouse)
+
+"""
+@warehouses_bp.get("/warehouses/<int:warehouse_id>/thresholds")
+def get_warehouse_thresholds(warehouse_id):
+    if get_warehouse(db.get_db(), warehouse_id) is None:
+        return _error_response(
+            "NOT_FOUND", "謖・ｮ壹＆繧後◆蛟牙ｺｫ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ縲・, status=404
+        )
+    try:
+        thresholds = list_thresholds(db.get_db(), warehouse_id)
+    except Exception:
+        return _error_response(
+            "INTERNAL_ERROR", "蛟牙ｺｫ縺ｮ基準数量を取得できませんでした。", status=500
+        )
+    return jsonify(data=thresholds)
+
+
+@warehouses_bp.put("/warehouses/<int:warehouse_id>/thresholds/<int:item_id>")
+def put_warehouse_threshold(warehouse_id, item_id):
+    body, error = _json_object()
+    if error:
+        return error
+    value_or_error = _validate_threshold_body(body)
+    if not isinstance(value_or_error, Decimal):
+        return value_or_error
+
+    try:
+        threshold, created = put_threshold(
+            db.get_db(), warehouse_id, item_id, value_or_error
+        )
+    except ThresholdUnitError:
+        return _error_response(
+            "VALIDATION_ERROR",
+            "分割不可の品目には整数の基準数量を指定してください。",
+            status=422,
+            fields=_field_error(
+                "/body/minimum_quantity", "UNIT_PRECISION", "小数は指定できません。"
+            ),
+        )
+    except Exception:
+        return _error_response(
+            "INTERNAL_ERROR", "基準数量を保存できませんでした。", status=500
+        )
+
+    if threshold is None:
+        return _error_response(
+            "NOT_FOUND", "倉庫または品目が見つかりません。", status=404
+        )
+    response = jsonify(data=threshold)
+    response.status_code = 201 if created else 200
+    return response
+"""

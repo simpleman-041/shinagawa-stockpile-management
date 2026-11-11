@@ -12,7 +12,7 @@ from flask import Flask
 
 
 def create_app(test_config=None):
-    """設定を読み込み、DB機能を登録したFlaskアプリを返す。
+    """設定を読み込み、需要条件を含むAPI・画面・DB機能を登録したアプリを返す。
 
     test_config は設定を上書きする辞書。テスト時に一時DBを指定するために使う。
     アプリの組み立てとDB初期化を分け、起動するだけでDBを変更しないようにする。
@@ -38,9 +38,12 @@ def create_app(test_config=None):
     from .routes.items import items_bp
     from .routes.shelters import shelters_bp
     from .routes.pages import pages_bp
+    from .routes.demand_groups import demand_groups_bp, register_routing_errors
 
     app.register_blueprint(warehouses_bp, url_prefix="/api/v1")
     app.register_blueprint(items_bp, url_prefix="/api/v1")
     app.register_blueprint(shelters_bp, url_prefix="/api/v1")
     app.register_blueprint(pages_bp)
+    app.register_blueprint(demand_groups_bp, url_prefix="/api/v1")
+    register_routing_errors(app)
     return app
