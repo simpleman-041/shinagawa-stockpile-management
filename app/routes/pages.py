@@ -3,6 +3,7 @@
 from flask import Blueprint, abort, render_template
 
 from app import db
+from app.services.items import get_item
 from app.services.warehouses import get_warehouse
 
 
@@ -34,3 +35,21 @@ def warehouses_edit_page(warehouse_id):
         mode="edit",
         warehouse=warehouse,
     )
+
+
+@pages_bp.get("/items")
+def items_page():
+    return render_template("items.html")
+
+
+@pages_bp.get("/items/new")
+def items_new_page():
+    return render_template("items_form.html", mode="create", item=None)
+
+
+@pages_bp.get("/items/<int:item_id>/edit")
+def items_edit_page(item_id):
+    item = get_item(db.get_db(), item_id)
+    if item is None:
+        abort(404)
+    return render_template("items_form.html", mode="edit", item=item)

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>品目一覧 | UnFire</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <p class="eyebrow">UnFire</p>
+        <h1>品目一覧</h1>
+        <p class="lead">登録されている品目を確認できます。</p>
+      </header>
+
+      <section class="panel" aria-labelledby="search-heading">
+        <div class="section-heading">
+          <h2 id="search-heading">検索条件</h2>
+          <a href="{{ url_for('pages.items_new_page') }}">品目を登録</a>
+        </div>
+        <form id="item-search-form" class="search-form">
+          <label>
+            品目名
+            <input id="item-query" name="q" type="search" autocomplete="off">
+          </label>
+          <label>
+            登録状態
+            <select id="item-state" name="registration_state">
+              <option value="">すべて</option>
+              <option value="active">登録中</option>
+              <option value="closed">登録終了</option>
+            </select>
+          </label>
+          <button type="submit">検索</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="list-heading">
+        <div class="section-heading">
+          <h2 id="list-heading">品目</h2>
+          <span id="item-count" class="count" aria-live="polite"></span>
+        </div>
+        <p id="item-loading" class="status" role="status">読み込み中…</p>
+        <p id="item-empty" class="status" hidden>条件に一致する品目はありません。</p>
+        <p id="item-error" class="status error" role="alert" hidden></p>
+        <div class="table-wrap" id="item-table-wrap" hidden>
+          <table>
+            <caption class="visually-hidden">品目一覧</caption>
+            <thead>
+              <tr>
+                <th scope="col">品目名</th>
+                <th scope="col">分類</th>
+                <th scope="col">単位</th>
+                <th scope="col">分割可否</th>
+                <th scope="col">期限接近日数</th>
+                <th scope="col">状態</th>
+                <th scope="col">操作</th>
+              </tr>
+            </thead>
+            <tbody id="item-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/items.js') }}" defer></script>
+  </body>
+</html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% if mode == "edit" %}
+      <title>品目編集 | UnFire</title>
+    {% else %}
+      <title>品目登録 | UnFire</title>
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <p class="eyebrow">UnFire</p>
+        {% if mode == "edit" %}
+          <h1>品目編集</h1>
+          <p class="lead">登録済みの品目情報を編集します。</p>
+        {% else %}
+          <h1>品目登録</h1>
+          <p class="lead">新しい品目情報を登録します。</p>
+        {% endif %}
+      </header>
+
+      <section class="panel">
+        <form id="item-form" data-mode="{{ mode }}" {% if mode == "edit" %}data-item-id="{{ item.item_id }}"{% endif %}>
+          <label>
+            品目名
+            <input name="name" type="text" required value="{{ item.name if mode == 'edit' else '' }}">
+          </label>
+          <label>
+            分類
+            <input name="category" type="text" required value="{{ item.category if mode == 'edit' else '' }}">
+          </label>
+          <label>
+            管理単位（例：食、本、枚）
+            <input name="quantity_unit" type="text" required value="{{ item.quantity_unit if mode == 'edit' else '' }}">
+          </label>
+          <label>
+            単位容積（m³、任意）
+            <input name="unit_volume_m3" type="text" inputmode="decimal" value="{{ item.unit_volume_m3 if mode == 'edit' and item.unit_volume_m3 is not none else '' }}">
+          </label>
+          <label>
+            分割可否
+            <select name="is_divisible" required>
+              <option value="false" {% if mode == 'edit' and not item.is_divisible %}selected{% endif %}>分割不可</option>
+              <option value="true" {% if mode == 'edit' and item.is_divisible %}selected{% endif %}>分割可</option>
+            </select>
+          </label>
+          <label>
+            期限接近日数
+            <input name="near_expiry_days" type="number" min="1" max="3650" step="1" required value="{{ item.near_expiry_days if mode == 'edit' else '' }}">
+          </label>
+          <div>
+            <button type="submit">{% if mode == "edit" %}保存{% else %}登録{% endif %}</button>
+            <a href="{{ url_for('pages.items_page') }}">キャンセル</a>
+          </div>
+          <p id="item-form-error" class="status error" role="alert" hidden></p>
+        </form>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/items-form.js') }}" defer></script>
+  </body>
+</html>
