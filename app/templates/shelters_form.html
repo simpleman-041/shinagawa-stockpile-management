@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if mode == "edit" %}避難所編集{% else %}避難所登録{% endif %} | UnFire</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <p class="eyebrow">UnFire</p>
+        <h1>{% if mode == "edit" %}避難所編集{% else %}避難所登録{% endif %}</h1>
+        <p class="lead">住所と正式目標を管理します。</p>
+      </header>
+      <section class="panel">
+        <form id="shelter-form" data-mode="{{ mode }}" {% if mode == "edit" %}data-shelter-id="{{ shelter.shelter_id }}"{% endif %}>
+          <label>
+            避難所名
+            <input name="name" type="text" required value="{{ shelter.name if mode == 'edit' else '' }}">
+          </label>
+          <label>
+            住所
+            <input name="address" type="text" required value="{{ shelter.address if mode == 'edit' else '' }}">
+          </label>
+          <label>
+            目標人数（未設定可）
+            <input name="target_people" type="number" min="1" step="1" value="{% if mode == 'edit' and shelter.target_people is not none %}{{ shelter.target_people }}{% endif %}">
+          </label>
+          <label>
+            目標日数（未設定可）
+            <input name="target_days" type="number" min="1" step="1" value="{% if mode == 'edit' and shelter.target_days is not none %}{{ shelter.target_days }}{% endif %}">
+          </label>
+          {% if mode == "edit" %}
+            <p>設定状態：{{ "完了" if shelter.setup_state == "complete" else "編集中" }}</p>
+            <button type="button" id="setup-state-button" data-state="{{ shelter.setup_state }}">設定状態を切り替え</button>
+          {% endif %}
+          <div>
+            <button type="submit">{% if mode == "edit" %}保存{% else %}登録{% endif %}</button>
+            <a href="{{ url_for('pages.shelters_page') }}">キャンセル</a>
+          </div>
+          <p id="shelter-form-error" class="status error" role="alert" hidden></p>
+        </form>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/shelters-form.js') }}" defer></script>
+  </body>
+</html>
