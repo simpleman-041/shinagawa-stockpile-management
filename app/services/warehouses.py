@@ -3,6 +3,10 @@
 from app import db
 
 
+class ThresholdUnitError(Exception):
+    """基準数量が品目の単位条件に合わない場合に発生する例外。"""
+
+
 def list_warehouses(connection, *, q=None, coordinates=None, limit=50, offset=0):
     """倉庫一覧を同じ読取トランザクション内で取得する。
 
@@ -106,3 +110,62 @@ def get_warehouse(connection, warehouse_id):
             (warehouse_id,),
         ).fetchone()
         return dict(row) if row is not None else None
+
+
+def list_thresholds(connection, warehouse_id):
+    """倉庫に設定済みの基準だけを返す。未設定の品目は行を返さない。"""
+    with db.transaction(connection, write=False):
+        rows = connection.execute(
+            """
+            SELECT warehouse_id, item_id, minimum_quantity
+            FROM stock_thresholds
+            WHERE warehouse_id = ?
+            ORDER BY item_id ASC
+            """,
+            (warehouse_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def put_threshold(connection, warehouse_id, item_id, minimum_quantity):
+    """倉庫×品目の基準を新設または更新する。0も有効な値として保存する。"""
+    with db.transaction(connection, write=True):
+        warehouse = connection.execute(
+            "SELECT warehouse_id FROM warehouses WHERE warehouse_id = ?",
+            (warehouse_id,),
+        ).fetchone()
+        item = connection.execute(
+            "SELECT item_id, is_divisible FROM items WHERE item_id = ?",
+            (item_id,),
+        ).fetchone()
+        if warehouse is None or item is None:
+            return None, False
+
+        if not bool(item["is_divisible"]) and minimum_quantity != minimum_quantity.to_integral_value():
+            raise ThresholdUnitError()
+
+        existing = connection.execute(
+            """
+            SELECT 1 FROM stock_thresholds
+            WHERE warehouse_id = ? AND item_id = ?
+            """,
+            (warehouse_id, item_id),
+        ).fetchone()
+        connection.execute(
+            """
+            INSERT INTO stock_thresholds (warehouse_id, item_id, minimum_quantity)
+            VALUES (?, ?, ?)
+            ON CONFLICT (warehouse_id, item_id)
+            DO UPDATE SET minimum_quantity = excluded.minimum_quantity
+            """,
+            (warehouse_id, item_id, float(minimum_quantity)),
+        )
+        row = connection.execute(
+            """
+            SELECT warehouse_id, item_id, minimum_quantity
+            FROM stock_thresholds
+            WHERE warehouse_id = ? AND item_id = ?
+            """,
+            (warehouse_id, item_id),
+        ).fetchone()
+    return dict(row), existing is None
