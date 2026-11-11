@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {% if mode == "edit" %}
+      <title>倉庫編集 | UnFire</title>
+    {% else %}
+      <title>倉庫登録 | UnFire</title>
+    {% endif %}
+
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/warehouses.css') }}"
+    >
+  </head>
+
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <p class="eyebrow">UnFire</p>
+
+        {% if mode == "edit" %}
+          <h1>倉庫編集</h1>
+          <p class="lead">登録済みの倉庫情報を編集します。</p>
+        {% else %}
+          <h1>倉庫登録</h1>
+          <p class="lead">新しい倉庫情報を登録します。</p>
+        {% endif %}
+      </header>
+
+      <section class="panel">
+        <form
+          id="warehouse-form"
+          data-mode="{{ mode }}"
+          {% if mode == "edit" %}
+            data-warehouse-id="{{ warehouse.warehouse_id }}"
+          {% endif %}
+        >
+          <label for="warehouse-name">
+            倉庫名
+          </label>
+          <input
+            id="warehouse-name"
+            name="name"
+            type="text"
+            required
+            value="{{ warehouse.name if mode == 'edit' else '' }}"
+          >
+
+          <label for="facility-type">
+            施設種別
+          </label>
+          <input
+            id="facility-type"
+            name="facility_type"
+            type="text"
+            required
+            value="{{ warehouse.facility_type if mode == 'edit' else '' }}"
+          >
+
+          <label for="warehouse-address">
+            住所
+          </label>
+          <input
+            id="warehouse-address"
+            name="address"
+            type="text"
+            required
+            value="{{ warehouse.address if mode == 'edit' else '' }}"
+          >
+
+          <label for="warehouse-latitude">
+            緯度
+          </label>
+          <input
+            id="warehouse-latitude"
+            name="latitude"
+            type="number"
+            min="-90"
+            max="90"
+            step="any"
+            value="{% if mode == 'edit' and warehouse.latitude is not none %}{{ warehouse.latitude }}{% endif %}"
+          >
+
+          <label for="warehouse-longitude">
+            経度
+          </label>
+          <input
+            id="warehouse-longitude"
+            name="longitude"
+            type="number"
+            min="-180"
+            max="180"
+            step="any"
+            value="{% if mode == 'edit' and warehouse.longitude is not none %}{{ warehouse.longitude }}{% endif %}"
+          >
+
+          <label for="capacity-m3">
+            保管容量（立方メートル）
+          </label>
+          <input
+            id="capacity-m3"
+            name="capacity_m3"
+            type="number"
+            min="0"
+            step="any"
+            value="{% if mode == 'edit' and warehouse.capacity_m3 is not none %}{{ warehouse.capacity_m3 }}{% endif %}"
+          >
+
+          <div>
+            <button type="submit">
+              {% if mode == "edit" %}
+                保存
+              {% else %}
+                登録
+              {% endif %}
+            </button>
+
+            <a href="{{ url_for('pages.warehouses_page') }}">
+              キャンセル
+            </a>
+          </div>
+
+          <p id="warehouse-form-error" class="status error" role="alert" hidden></p>
+          <p id="warehouse-form-success" class="status" role="status" hidden></p>
+        </form>
+      </section>
+    </main>
+
+    <script
+      src="{{ url_for('static', filename='js/warehouses-form.js') }}"
+      defer
+    ></script>
+  </body>
+</html>
