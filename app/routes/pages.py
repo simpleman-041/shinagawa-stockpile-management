@@ -72,3 +72,28 @@ def shelters_edit_page(shelter_id):
     if shelter is None:
         abort(404)
     return render_template("shelters_form.html", mode="edit", shelter=shelter)
+
+
+@pages_bp.get("/stocks")
+def stocks_page():
+    return render_template("stocks.html", mode="list")
+
+
+@pages_bp.get("/stocks/new")
+def stocks_new_page():
+    return render_template("stocks.html", mode="create")
+
+
+@pages_bp.get("/stocks/<int:stock_id>")
+def stocks_detail_page(stock_id):
+    from flask import request
+    from app.services.stocks import get_stock, restoration_context, StockError
+    try:
+        context = restoration_context(db.get_db(), stock_id) if request.args.get("restore") == "1" else None
+        if context is None:
+            get_stock(db.get_db(), stock_id)
+    except StockError as error:
+        if error.status == 404:
+            abort(404)
+        raise
+    return render_template("stocks.html", mode="detail", stock_id=stock_id, restoration_context=context)

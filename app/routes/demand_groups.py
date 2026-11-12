@@ -67,6 +67,14 @@ def register_routing_errors(app):
         path = request.path
         is_group = path == "/api/v1/demand-groups" or path.startswith("/api/v1/demand-groups/")
         is_conversion = re.fullmatch(r"/api/v1/items/[^/]+/conversion(?:/.*)?", path)
+        is_stock = re.match(r"^/api/v1/(?:stocks|stock-movements|stock-merges|stock-alerts|operators)(?:/|$)", path)
+        if is_stock:
+            from .stocks import error_response
+            code = "METHOD_NOT_ALLOWED" if error.code == 405 else "RESOURCE_NOT_FOUND"
+            response, status = error_response(code, "APIのパスとHTTPメソッドを確認してください。", error.code)
+            if error.code == 405:
+                response.headers["Allow"] = ", ".join(sorted(error.valid_methods or []))
+            return response, status
         if not (is_group or is_conversion):
             return error
         code = "METHOD_NOT_ALLOWED" if error.code == 405 else "RESOURCE_NOT_FOUND"
@@ -133,7 +141,11 @@ def _positive_decimal(value, path):
         raise DemandGroupError("VALIDATION_ERROR", "正の10進文字列を指定してください。", path=path)
     if len(match.group(2) or "") > 2:
         raise DemandGroupError("DECIMAL_PRECISION", "小数第2位までで指定してください。", path=path)
-    decimal = Decimal(value)
+    try:
+        decimal = Decimal(value)
+    except ValueError:
+        # 純Python版Decimalでは巨大な数字列が整数変換の桁数制限に達する。
+        raise DemandGroupError("NUMBER_NOT_REPRESENTABLE", "数値の表現範囲を超えています。", path=path) from None
     if decimal <= 0:
         raise DemandGroupError("VALIDATION_ERROR", "0より大きい値を指定してください。", path=path)
     return decimal
