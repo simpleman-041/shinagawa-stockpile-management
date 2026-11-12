@@ -1,7 +1,6 @@
 (function () {
   const form = document.querySelector("#shelter-form");
   const error = document.querySelector("#shelter-form-error");
-  const setupButton = document.querySelector("#setup-state-button");
 
   function showError(message) {
     error.textContent = message;
@@ -55,21 +54,4 @@
     }
   });
 
-  if (setupButton) {
-    setupButton.addEventListener("click", async () => {
-      error.hidden = true;
-      const current = setupButton.dataset.state;
-      const next = current === "complete" ? "editing" : "complete";
-      try {
-        await request(`/api/v1/shelters/${form.dataset.shelterId}/warehouse-setup`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ setup_state: next }),
-        });
-        window.location.reload();
-      } catch (reason) {
-        showError(reason.message);
-      }
-    });
-  }
 })();

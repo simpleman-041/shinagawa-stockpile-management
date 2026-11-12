@@ -198,6 +198,12 @@ node tests/stocks-movements-ui.test.cjs
 
 採用仕様・API・変更範囲・検証結果・ブラウザ確認待ちは [入出庫の実装報告](docs/movements-implementation-report.md) を参照してください。
 
+## 倉庫対応・共有割当
+
+避難所一覧の「倉庫対応・共有割当」から、専用／共有と全対応先、共有在庫ごとの割当、設定中／完了を管理できます。
+在庫登録前に倉庫対応を設定してください。有効在庫がある倉庫は数量0でも対応変更を拒否します。
+割当数量0は解除です。検証結果とブラウザ確認待ちは [倉庫対応・共有割当の実装報告](docs/warehouse-settings-implementation-report.md) を参照してください。
+
 ## 要件・設計資料
 
 [local-specs/README.md](local-specs/README.md) を参照してください。

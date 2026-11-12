@@ -50,4 +50,6 @@ def create_app(test_config=None):
     init_stocks(app)
     from .routes.movements import movements_bp
     app.register_blueprint(movements_bp, url_prefix="/api/v1")
+    from .routes.warehouse_settings import warehouse_settings_bp
+    app.register_blueprint(warehouse_settings_bp, url_prefix="/api/v1")
     return app
