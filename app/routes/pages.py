@@ -61,6 +61,29 @@ def shelters_page():
     return render_template("shelters.html")
 
 
+@pages_bp.get("/calculations")
+def calculations_page():
+    return render_template("calculations.html", mode="calculate")
+
+
+@pages_bp.get("/calculation-runs")
+def calculation_history_page():
+    return render_template("calculations.html", mode="history")
+
+
+@pages_bp.get("/calculation-runs/<int:run_id>")
+def calculation_saved_page(run_id):
+    from app.services.calculations import get_saved
+    from app.services.stocks import StockError
+    try:
+        get_saved(db.get_db(), run_id)
+    except StockError as error:
+        if error.status == 404:
+            abort(404)
+        raise
+    return render_template("calculations.html", mode="saved", run_id=run_id)
+
+
 @pages_bp.get("/shelters/new")
 def shelters_new_page():
     return render_template("shelters_form.html", mode="create", shelter=None)

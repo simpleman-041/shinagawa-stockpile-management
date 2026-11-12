@@ -1,0 +1,9 @@
+.calculation-minimum { font-size: 1.25rem; font-weight: 700; }
+.calculation-warning { padding: .8rem; background: #fff3ce; border-left: 4px solid #aa7500; }
+.calculation-reason { white-space: pre-wrap; padding: .8rem; background: #fff0ee; }
+#result-details p, #result-groups td { overflow-wrap: anywhere; white-space: pre-line; }
+#result-details h3 { margin-top: 1.5rem; }
+#calculation-result summary { cursor: pointer; padding: 1rem 0; font-weight: 600; }
+#calculation-result table { min-width: 1050px; }
+#result-details table { min-width: 850px; }
+#calculation-result caption { text-align: left; padding: .7rem 0; }
