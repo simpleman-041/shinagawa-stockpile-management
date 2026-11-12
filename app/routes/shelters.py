@@ -9,7 +9,6 @@ from app.services.shelters import (
     list_shelters,
     patch_shelter,
     post_shelter,
-    put_setup_state,
     put_targets,
 )
 
@@ -258,25 +257,6 @@ def put_shelter_targets(shelter_id):
         )
     except Exception:
         return _error_response("INTERNAL_ERROR", "正式目標を更新できませんでした。", status=500)
-    if shelter is None:
-        return _error_response("RESOURCE_NOT_FOUND", "指定された避難所が見つかりません。", status=404)
-    return jsonify(data=shelter)
-
-
-@shelters_bp.put("/shelters/<int:shelter_id>/warehouse-setup")
-def put_shelter_setup(shelter_id):
-    body, error = _json_object()
-    if error:
-        return error
-    if set(body) != {"setup_state"} or body["setup_state"] not in {"editing", "complete"}:
-        return _error_response(
-            "VALIDATION_ERROR", "setup_stateはeditingまたはcompleteで指定してください。", status=422,
-            fields=[_field("/body/setup_state", "ENUM", "editingまたはcompleteを指定してください。")],
-        )
-    try:
-        shelter = put_setup_state(db.get_db(), shelter_id, setup_state=body["setup_state"])
-    except Exception:
-        return _error_response("INTERNAL_ERROR", "設定状態を更新できませんでした。", status=500)
     if shelter is None:
         return _error_response("RESOURCE_NOT_FOUND", "指定された避難所が見つかりません。", status=404)
     return jsonify(data=shelter)

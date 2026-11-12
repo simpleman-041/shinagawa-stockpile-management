@@ -79,6 +79,14 @@ def stocks_page():
     return render_template("stocks.html", mode="list")
 
 
+@pages_bp.get("/shelters/<int:shelter_id>/warehouse-settings")
+def shelter_warehouse_settings_page(shelter_id):
+    shelter = get_shelter(db.get_db(), shelter_id)
+    if shelter is None:
+        abort(404)
+    return render_template("warehouse_settings.html", shelter=shelter)
+
+
 @pages_bp.get("/stocks/new")
 def stocks_new_page():
     return render_template("stocks.html", mode="create")
