@@ -90,11 +90,14 @@ def put_targets(connection, shelter_id, *, target_people, target_days):
 
 
 def put_setup_state(connection, shelter_id, *, setup_state):
-    with db.transaction(connection, write=True):
-        if _get_shelter_row(connection, shelter_id) is None:
+    """既存のサービス入口も、倉庫対応の整合性検証を経由する。"""
+    from app.services.warehouse_settings import put_setup
+    from app.services.stocks import StockError
+    try:
+        result = put_setup(connection, shelter_id, setup_state)
+    except StockError as error:
+        if error.status == 404:
             return None
-        connection.execute(
-            "UPDATE shelters SET setup_state = ? WHERE shelter_id = ?",
-            (setup_state, shelter_id),
-        )
-        return _shelter_from_row(_get_shelter_row(connection, shelter_id))
+        raise
+    result["shelter_id"] = int(result["shelter_id"])
+    return result

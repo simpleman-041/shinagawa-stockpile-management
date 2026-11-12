@@ -45,6 +45,10 @@
       link.href = `/shelters/${shelter.shelter_id}/edit`;
       link.textContent = "編集";
       action.appendChild(link);
+      const settings = document.createElement("a");
+      settings.href = `/shelters/${shelter.shelter_id}/warehouse-settings`;
+      settings.textContent = " 倉庫対応・共有割当";
+      action.appendChild(settings);
       row.appendChild(action);
       tableBody.appendChild(row);
     });

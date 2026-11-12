@@ -1,5 +1,6 @@
 .stock-form { display: grid; gap: 1rem; max-width: 42rem; margin-block: 1.5rem; }
 .stock-form label { display: grid; gap: .4rem; }
+.stock-form > fieldset { display: grid; gap: 1rem; min-width: 0; }
 .stock-form input[type="checkbox"] { width: auto; justify-self: start; }
 nav { display: flex; flex-wrap: wrap; gap: 1rem; }
 dl { display: grid; grid-template-columns: minmax(8rem, 1fr) 3fr; gap: .5rem 1rem; }
