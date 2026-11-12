@@ -8,8 +8,8 @@
 </head>
 <body data-mode="{{ mode }}" data-stock-id="{{ stock_id or '' }}">
 <main class="page-shell">
-  <header class="page-header"><h1>在庫管理</h1>
-    <nav aria-label="管理メニュー"><a href="/stocks">在庫一覧</a> <a href="/stocks/new">在庫登録</a>
+  <header class="page-header"><h1 id="stock-heading">在庫管理</h1>
+    <nav aria-label="管理メニュー"><a href="/stocks">全倉庫の在庫</a> <a id="stock-create-link" href="/stocks/new">在庫登録</a>
       <a href="/warehouses">倉庫</a> <a href="/items">品目</a> <a href="/shelters">避難所</a></nav>
   </header>
   <p id="loading" role="status">読み込み中…</p>
@@ -48,12 +48,12 @@
       <label>担当者<select name="operator_id" data-options="operators"><option value="">選択してください</option></select></label>
       <label>入庫理由（任意）<input name="reason"></label>
       <p>同じ倉庫・品目・保管場所・期限の有効在庫が1件あれば、その在庫に加算します。期限未確認は別の在庫として登録します。初期数量が正の場合は担当者が必要です。</p>
-      <button>保存</button><a href="/stocks">キャンセル</a>
+      <button>保存</button><a id="stock-cancel-link" href="/stocks">キャンセル</a>
     </form>
   </section>
   {% else %}
   <section class="panel"><h2>在庫詳細</h2><dl id="detail"></dl>
-    <p><a id="item-link">品目を確認</a> <a id="warehouse-link">倉庫を確認</a> <a href="/stocks/new">続けて登録</a></p>
+    <p><a id="item-link">品目を確認</a> <a id="warehouse-link">倉庫を確認</a> <a id="warehouse-stocks-link">この倉庫の在庫へ</a> <a id="stock-continue-link" href="/stocks/new">続けて登録</a></p>
   </section>
   <section class="panel" id="active-actions" hidden><h2>在庫情報の訂正</h2>
     <form id="location-form" class="stock-form"><label>保管場所<input name="location" required></label><button>保管場所を保存</button></form>

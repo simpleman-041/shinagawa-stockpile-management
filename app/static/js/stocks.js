@@ -63,6 +63,18 @@
       element.append(dt, dd);
     }
   }
+  function warehouseContext(warehouseId) {
+    const warehouse = refs.warehouses.find((value) => String(value.warehouse_id) === warehouseId);
+    if (warehouseId && !warehouse) throw new Error("指定された倉庫が見つかりません。倉庫一覧から選び直してください。");
+    const name = warehouse ? `${warehouse.name}（倉庫ID ${warehouseId}）` : "全倉庫";
+    $("stock-heading").textContent = mode === "create" ? `${warehouse ? name + "の" : ""}在庫登録` : `${name}の在庫`;
+    document.title = `${$("stock-heading").textContent} | UnFire`;
+    const query = warehouse ? `?warehouse_id=${encodeURIComponent(warehouseId)}` : "";
+    $("stock-create-link").href = `/stocks/new${query}`;
+    if ($("stock-cancel-link")) $("stock-cancel-link").href = `/stocks${query}`;
+    if ($("warehouse-stocks-link")) $("warehouse-stocks-link").href = `/stocks${query}`;
+    if ($("stock-continue-link")) $("stock-continue-link").href = `/stocks/new${query}`;
+  }
   function syncExpiry(form) {
     const dated = form.elements.expiry_state.value === "dated";
     form.elements.expiry_date.disabled = !dated;
@@ -94,6 +106,7 @@
     try {
       const result = await api(`/api/v1/stocks?${params}`);
       if (generation !== listGeneration) return;
+      warehouseContext(params.get("warehouse_id") || "");
       $("rows").replaceChildren();
       for (const value of result.data) {
         const data = rowData(value);
@@ -110,7 +123,7 @@
       $("next").disabled = offset + 50 >= result.page.total;
       history.replaceState(null, "", `/stocks?${params}`);
       const alerts = (await api("/api/v1/stock-alerts")).data;
-      $("alerts").textContent = `有効在庫の警告　期限切れ ${alerts.expired_count}件 ／ 期限接近 ${alerts.near_expiry_count}件 ／ 未確認 ${alerts.unconfirmed_count}件`;
+      $("alerts").textContent = `全倉庫の有効在庫の警告　期限切れ ${alerts.expired_count}件 ／ 期限接近 ${alerts.near_expiry_count}件 ／ 未確認 ${alerts.unconfirmed_count}件`;
     } catch (error) { if (generation === listGeneration) showError(error); }
     finally { if (generation === listGeneration) $("loading").hidden = true; }
   }
@@ -131,6 +144,7 @@
   }
   async function loadDetail() {
     current = (await api(root)).data;
+    warehouseContext(current.stock.warehouse_id);
     definitionList($("detail"), rowData(current));
     const active = current.stock.state === "active";
     $("active-actions").hidden = !active;
@@ -167,6 +181,7 @@
     }
     if (mode === "list") {
       const params = new URLSearchParams(location.search);
+      warehouseContext(params.get("warehouse_id") || "");
       for (const [key, value] of params) if ($( "search").elements[key]) $("search").elements[key].value = value;
       offset = /^\d+$/.test(params.get("offset") || "") ? Number(params.get("offset")) : 0;
       $("search").addEventListener("submit", (e) => { e.preventDefault(); offset = 0; void loadList(); });
@@ -176,6 +191,10 @@
       await loadList();
     } else if (mode === "create") {
       const form = $("create");
+      const warehouseId = new URLSearchParams(location.search).get("warehouse_id") || "";
+      warehouseContext(warehouseId);
+      form.elements.warehouse_id.value = warehouseId;
+      form.elements.warehouse_id.addEventListener("change", () => warehouseContext(form.elements.warehouse_id.value));
       form.elements.item_id.addEventListener("change", () => {
         const item = refs.items.find((i) => i.item_id === form.elements.item_id.value);
         $("unit-hint").textContent = item ? `単位 ${item.quantity_unit} ／ ${item.is_divisible ? "小数第2位まで" : "整数のみ"}` : "";
