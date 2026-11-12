@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>在庫管理 | UnFire</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/stocks.css') }}">
+</head>
+<body data-mode="{{ mode }}" data-stock-id="{{ stock_id or '' }}">
+<main class="page-shell">
+  <header class="page-header"><h1>在庫管理</h1>
+    <nav aria-label="管理メニュー"><a href="/stocks">在庫一覧</a> <a href="/stocks/new">在庫登録</a>
+      <a href="/warehouses">倉庫</a> <a href="/items">品目</a> <a href="/shelters">避難所</a></nav>
+  </header>
+  <p id="loading" role="status">読み込み中…</p>
+  <p id="error" class="status error" role="alert" hidden></p>
+  <p id="success" class="status" role="status" hidden></p>
+  <noscript>在庫の表示・操作にはJavaScriptを有効にしてください。</noscript>
+  {% if mode == 'list' %}
+  <section class="panel">
+    <h2>在庫検索</h2>
+    <form id="search" class="search-form">
+      <label>品目名・保管場所<input name="q" type="search"></label>
+      <label>倉庫<select name="warehouse_id" data-options="warehouses"><option value="">すべて</option></select></label>
+      <label>品目<select name="item_id" data-options="items"><option value="">すべて</option></select></label>
+      <label>在庫状態<select name="state"><option value="active">有効</option><option value="deleted">削除済み</option><option value="merged">統合済み</option></select></label>
+      <label>期限状況<select name="expiry_status"><option value="">すべて</option><option value="near">期限接近</option><option value="expired">期限切れ</option><option value="valid">期限内（接近以外）</option><option value="none">期限不要</option><option value="unconfirmed">未確認</option></select></label>
+      <button>検索</button><button type="button" id="clear">条件クリア</button>
+    </form>
+  </section>
+  <section class="panel"><h2>在庫一覧</h2>
+    <p id="alerts" role="status"></p>
+    <nav aria-label="期限警告の対象"><a href="/stocks?expiry_status=expired">期限切れを確認</a><a href="/stocks?expiry_status=near">期限接近を確認</a><a href="/stocks?expiry_status=unconfirmed">期限未確認を確認</a></nav>
+    <p id="count"></p><p id="empty" hidden>条件に一致する在庫はありません。</p>
+    <div class="table-wrap"><table><thead><tr><th>品目</th><th>分類</th><th>倉庫</th><th>保管場所</th><th>数量</th><th>使用期限</th><th>状態</th><th>操作</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="pagination"><button id="previous" type="button">前へ</button><button id="next" type="button">次へ</button></div>
+  </section>
+  {% elif mode == 'create' %}
+  <section class="panel"><h2>在庫登録</h2>
+    <form id="create" class="stock-form">
+      <label>倉庫<select name="warehouse_id" data-options="warehouses" required><option value="">選択してください</option></select></label>
+      <label>品目<select name="item_id" data-options="items" data-active-only="true" required><option value="">選択してください</option></select></label>
+      <label>保管場所<input name="location" required></label>
+      <label>初期数量<input name="initial_quantity" inputmode="decimal" value="0" required></label>
+      <p id="unit-hint"></p>
+      <label>期限状態<select name="expiry_state"><option value="unconfirmed">未確認</option><option value="dated">期限あり</option><option value="none">期限不要</option></select></label>
+      <label>使用期限<input name="expiry_date" type="date" disabled></label>
+      <label>担当者<select name="operator_id" data-options="operators"><option value="">選択してください</option></select></label>
+      <label>入庫理由（任意）<input name="reason"></label>
+      <p>同じ倉庫・品目・保管場所・期限の有効在庫が1件あれば、その在庫に加算します。期限未確認は別の在庫として登録します。初期数量が正の場合は担当者が必要です。</p>
+      <button>保存</button><a href="/stocks">キャンセル</a>
+    </form>
+  </section>
+  {% else %}
+  <section class="panel"><h2>在庫詳細</h2><dl id="detail"></dl>
+    <p><a id="item-link">品目を確認</a> <a id="warehouse-link">倉庫を確認</a> <a href="/stocks/new">続けて登録</a></p>
+  </section>
+  <section class="panel" id="active-actions" hidden><h2>在庫情報の訂正</h2>
+    <form id="location-form" class="stock-form"><label>保管場所<input name="location" required></label><button>保管場所を保存</button></form>
+    <form id="expiry-form" class="stock-form"><h3>期限訂正</h3>
+      <label>期限状態<select name="expiry_state"><option value="dated">期限あり</option><option value="none">期限不要</option><option value="unconfirmed">未確認</option></select></label>
+      <label>使用期限<input type="date" name="expiry_date"></label>
+      <label>担当者<select name="operator_id" data-options="operators" required><option value="">選択してください</option></select></label><button>期限を訂正</button>
+    </form>
+    <form id="delete-form" class="stock-form"><h3>論理削除</h3>
+      <p>数量と履歴を保持し、通常一覧と計算の対象から除外します。割当が残っている在庫は削除できません。</p>
+      <label>担当者<select name="operator_id" data-options="operators" required><option value="">選択してください</option></select></label>
+      <label><input type="checkbox" name="confirmed" required>表示中の数量・期限・状態を確認した</label><button>論理削除する</button>
+    </form>
+  </section>
+  <section class="panel" id="restore-actions" hidden><h2>在庫の復元</h2>
+    {% if restoration_context %}
+    <p>現在の倉庫区分 {{ restoration_context.mode }}。現在の対応避難所 {{ restoration_context.shelters | join('、') or '対応なし' }}。</p>
+    <form id="restore-form" class="stock-form"><label>担当者<select name="operator_id" data-options="operators" required><option value="">選択してください</option></select></label>
+      <label><input type="checkbox" name="confirmed" required>数量・期限・状態と現在の倉庫区分・対応先を確認した</label><button>復元する</button>
+    </form>
+    {% else %}<a href="?restore=1">現在の倉庫区分・対応先を取得して復元を確認</a>{% endif %}
+  </section>
+  <section class="panel" id="merge-actions" hidden><h2>在庫統合</h2>
+    <form id="merge-form" class="stock-form">
+      <label>統合先の在庫ID<input name="target_stock_id" inputmode="numeric" required></label><button>プレビュー</button>
+    </form>
+    <div id="merge-preview" hidden><dl id="merge-detail"></dl><p id="merge-notice"></p>
+      <form id="merge-confirm" class="stock-form"><label>担当者<select name="operator_id" data-options="operators" required><option value="">選択してください</option></select></label>
+        <label><input name="confirmed" type="checkbox" required>統合元・先・数量・取消制限を確認した</label><button>統合を確定</button>
+      </form>
+    </div>
+  </section>
+  <section class="panel"><h2>削除・復元履歴</h2><div id="state-history"></div><button type="button" id="more-state" hidden>さらに表示</button>
+    <h2>期限変更履歴</h2><div id="expiry-history"></div><button type="button" id="more-expiry" hidden>さらに表示</button>
+  </section>
+  {% endif %}
+</main>
+<script src="{{ url_for('static', filename='js/stocks.js') }}" defer></script>
+</body></html>

@@ -67,6 +67,14 @@ def register_routing_errors(app):
         path = request.path
         is_group = path == "/api/v1/demand-groups" or path.startswith("/api/v1/demand-groups/")
         is_conversion = re.fullmatch(r"/api/v1/items/[^/]+/conversion(?:/.*)?", path)
+        is_stock = re.match(r"^/api/v1/(?:stocks|stock-merges|stock-alerts|operators)(?:/|$)", path)
+        if is_stock:
+            from .stocks import error_response
+            code = "METHOD_NOT_ALLOWED" if error.code == 405 else "RESOURCE_NOT_FOUND"
+            response, status = error_response(code, "APIのパスとHTTPメソッドを確認してください。", error.code)
+            if error.code == 405:
+                response.headers["Allow"] = ", ".join(sorted(error.valid_methods or []))
+            return response, status
         if not (is_group or is_conversion):
             return error
         code = "METHOD_NOT_ALLOWED" if error.code == 405 else "RESOURCE_NOT_FOUND"
