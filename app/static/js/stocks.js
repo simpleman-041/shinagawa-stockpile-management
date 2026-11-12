@@ -5,7 +5,7 @@
   const mode = document.body.dataset.mode;
   const stockId = document.body.dataset.stockId;
   const root = `/api/v1/stocks/${stockId}`;
-  const labels = { active: "有効", deleted: "削除済み", merged: "統合済み", near: "期限接近", valid: "期限内", expired: "期限切れ", none: "期限不要", unconfirmed: "未確認", dated: "期限あり", delete: "削除", restore: "復元" };
+  const labels = { active: "有効", deleted: "削除済み", merged: "統合済み", near: "期限接近", valid: "期限内", expired: "期限切れ", none: "期限不要", unconfirmed: "未確認", dated: "期限あり", delete: "削除", restore: "復元", in: "入庫", out: "出庫", cancelled: "取消済み" };
   const refs = {};
   // 初期データ取得に失敗しても、通常のフォーム送信で入力を失わせない。
   for (const form of document.querySelectorAll("form")) {
@@ -15,11 +15,19 @@
   let token;
   let offset = 0;
   let listGeneration = 0;
+  let movementOffset = 0;
+  let movementGeneration = 0;
+  let cancellationId = null;
+  let movementFilters = new URLSearchParams();
   const historyOffsets = { state: 0, expiry: 0 };
   function showError(error) {
     $("error").textContent = error.message;
     $("error").hidden = false;
     $("error").scrollIntoView({ block: "nearest" });
+    if ($("cancellation-dialog")?.open) {
+      $("cancellation-error").textContent = error.message;
+      $("cancellation-error").hidden = false;
+    }
   }
   async function api(path, method = "GET", body) {
     let response;
@@ -147,6 +155,16 @@
     warehouseContext(current.stock.warehouse_id);
     definitionList($("detail"), rowData(current));
     const active = current.stock.state === "active";
+    $("movement-actions").hidden = !active;
+    $("movement-context").textContent = `${current.item_name} ／ 現在庫 ${current.stock.quantity} ${current.quantity_unit} ／ 割当済み ${current.allocated_total}`;
+    const item = refs.items.find((i) => i.item_id === current.stock.item_id);
+    $("movement-unit-hint").textContent = `単位 ${current.quantity_unit} ／ ${item?.is_divisible ? "小数第2位まで" : "整数のみ"} ／ 数量は0より大きい値`;
+    const movementForm = $("movement-form");
+    movementForm.elements.kind.options[0].disabled = current.item_registration_state !== "active";
+    if (current.item_registration_state !== "active") {
+      movementForm.elements.kind.value = "out";
+      $("movement-context").textContent += " ／ 登録終了品目のため入庫できません。";
+    }
     $("active-actions").hidden = !active;
     $("merge-actions").hidden = !active;
     $("restore-actions").hidden = current.stock.state !== "deleted";
@@ -160,11 +178,70 @@
     token = null; $("merge-preview").hidden = true;
     for (const checkbox of document.querySelectorAll('input[type="checkbox"]')) checkbox.checked = false;
     historyOffsets.state = 0; historyOffsets.expiry = 0;
-    await Promise.all([loadHistory("state"), loadHistory("expiry")]);
+    movementOffset = 0;
+    await Promise.all([loadHistory("state"), loadHistory("expiry"), loadMovements()]);
   }
-  async function updated() {
-    $("success").textContent = "保存しました。"; $("success").hidden = false;
+  async function updated(message = "保存しました。") {
+    $("success").textContent = message; $("success").hidden = false;
     await loadDetail();
+  }
+  function displayInstant(value) {
+    return value ? new Date(value).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3, hour12: false }) : "—";
+  }
+  function searchInstant(value) {
+    // datetime-localの値を端末のタイムゾーンに依存させず日本時間として扱う。
+    return new Date(`${value}+09:00`).toISOString();
+  }
+  async function loadMovements() {
+    const generation = ++movementGeneration;
+    const params = new URLSearchParams(movementFilters);
+    params.set("stock_id", stockId); params.set("limit", "20"); params.set("offset", String(movementOffset));
+    $("movement-loading").hidden = false;
+    $("movement-previous").disabled = true; $("movement-next").disabled = true;
+    try {
+      const result = await api(`/api/v1/stock-movements?${params}`);
+      if (generation !== movementGeneration) return;
+      $("movement-rows").replaceChildren();
+      for (const movement of result.data) {
+        const tr = document.createElement("tr");
+        const cancellation = movement.state === "cancelled" ? ` ／ ${displayInstant(movement.cancelled_at)} ／ ${movement.cancel_operator_name}` : "";
+        for (const value of [movement.movement_id, displayInstant(movement.registered_at), labels[movement.kind],
+          `${movement.quantity} ${current.quantity_unit}`, movement.operator_name, movement.reason || "—", labels[movement.state] + cancellation]) {
+          const td = document.createElement("td"); td.textContent = value; tr.append(td);
+        }
+        const action = document.createElement("td");
+        if (movement.state === "active" && current.stock.state === "active" && movement.merge_generation === current.stock.merge_generation) {
+          const button = document.createElement("button"); button.type = "button"; button.textContent = "取消を確認";
+          button.addEventListener("click", async () => {
+            button.disabled = true;
+            try { await confirmCancellation(movement.movement_id); } catch (error) { showError(error); }
+            finally { button.disabled = false; }
+          });
+          action.append(button);
+        } else action.textContent = movement.state === "cancelled" ? "取消済み" : "取消不可";
+        tr.append(action); $("movement-rows").append(tr);
+      }
+      $("movement-empty").hidden = result.data.length !== 0;
+      $("movement-count").textContent = `${result.page.total}件中 ${movementOffset + (result.data.length ? 1 : 0)}〜${movementOffset + result.data.length}件`;
+      $("movement-previous").disabled = movementOffset === 0;
+      $("movement-next").disabled = movementOffset + 20 >= result.page.total;
+    } finally { if (generation === movementGeneration) $("movement-loading").hidden = true; }
+  }
+  async function confirmCancellation(id) {
+    const [result, stock] = await Promise.all([api(`/api/v1/stock-movements/${id}`), api(root)]);
+    const movement = result.data;
+    if (movement.state !== "active" || stock.data.stock.state !== "active" || movement.merge_generation !== stock.data.stock.merge_generation) {
+      throw new Error("この取引は取消できません。現在庫・履歴を再取得してください。");
+    }
+    cancellationId = id;
+    definitionList($("cancellation-detail"), { "取引ID": id, "在庫ID": movement.stock_id, "品目": stock.data.item_name,
+      "処理区分": labels[movement.kind], "取引数量": `${movement.quantity} ${stock.data.quantity_unit}`,
+      "登録日時（日本時間）": displayInstant(movement.registered_at), "登録時担当者": movement.operator_name, "理由": movement.reason || "—",
+      "現在庫": stock.data.stock.quantity, "割当済み": stock.data.allocated_total,
+      "取消の影響": movement.kind === "in" ? "取引数量を現在庫から減らします。" : "取引数量を現在庫に戻します。" });
+    $("cancellation-form").reset(); $("cancellation-error").hidden = true;
+    $("cancellation-dialog").showModal();
   }
   try {
     [refs.warehouses, refs.items, refs.operators] = await Promise.all([all("warehouses"), all("items"), all("operators")]);
@@ -208,7 +285,45 @@
         location.assign(`/stocks/${result.data.stock.stock.stock_id}?saved=1`);
       });
     } else {
-      await loadDetail();
+      $("refresh-stock").addEventListener("click", async () => {
+        $("error").hidden = true; $("refresh-stock").disabled = true;
+        try { await loadDetail(); } catch (error) { showError(error); }
+        finally { $("refresh-stock").disabled = false; }
+      });
+      $("clear-movement").addEventListener("click", () => {
+        $("movement-form").reset();
+        if (current.item_registration_state !== "active") $("movement-form").elements.kind.value = "out";
+      });
+      submit("movement-form", async (f) => {
+        const result = await api(`${root}/movements`, "POST", { kind: f.elements.kind.value, quantity: f.elements.quantity.value,
+          operator_id: f.elements.operator_id.value, reason: f.elements.reason.value || null });
+        f.elements.quantity.value = ""; f.elements.reason.value = "";
+        await updated(`${labels[result.data.movement.kind]}を登録しました（取引ID ${result.data.movement.movement_id}）。`);
+      });
+      submit("movement-search", async (f) => {
+        const params = new URLSearchParams(new FormData(f));
+        for (const [key, value] of [...params]) {
+          if (!value) params.delete(key);
+          else if (key === "from" || key === "to") params.set(key, searchInstant(value));
+        }
+        movementFilters = params; movementOffset = 0; await loadMovements();
+      });
+      $("clear-movement-search").addEventListener("click", async () => {
+        $("movement-search").reset(); movementFilters = new URLSearchParams(); movementOffset = 0;
+        try { await loadMovements(); } catch (error) { showError(error); }
+      });
+      for (const [id, change] of [["movement-previous", -20], ["movement-next", 20]]) $(id).addEventListener("click", async () => {
+        movementOffset = Math.max(0, movementOffset + change);
+        try { await loadMovements(); } catch (error) { movementOffset -= change; showError(error); }
+      });
+      $("close-cancellation").addEventListener("click", () => $("cancellation-dialog").close());
+      $("cancellation-dialog").addEventListener("close", () => { cancellationId = null; });
+      submit("cancellation-form", async (f) => {
+        if (!cancellationId || !f.elements.confirmed.checked) throw new Error("対象取引を確認してください。");
+        const result = await api(`/api/v1/stock-movements/${cancellationId}/cancellation`, "POST", { operator_id: f.elements.operator_id.value });
+        $("cancellation-dialog").close();
+        await updated(`取引ID ${result.data.movement.movement_id}を取り消しました。元記録を保持しています。`);
+      });
       if (new URLSearchParams(location.search).has("saved")) {
         $("success").textContent = "在庫情報を保存しました。"; $("success").hidden = false;
       }
@@ -240,6 +355,7 @@
         historyOffsets[kind] += 50;
         try { await loadHistory(kind, true); } catch (error) { historyOffsets[kind] -= 50; showError(error); }
       });
+      await loadDetail();
     }
   } catch (error) { showError(error); }
   finally { $("loading").hidden = true; }

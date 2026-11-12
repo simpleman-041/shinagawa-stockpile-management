@@ -48,4 +48,6 @@ def create_app(test_config=None):
     register_routing_errors(app)
     from .routes.stocks import init_app as init_stocks
     init_stocks(app)
+    from .routes.movements import movements_bp
+    app.register_blueprint(movements_bp, url_prefix="/api/v1")
     return app
