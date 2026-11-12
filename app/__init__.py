@@ -52,4 +52,6 @@ def create_app(test_config=None):
     app.register_blueprint(movements_bp, url_prefix="/api/v1")
     from .routes.warehouse_settings import warehouse_settings_bp
     app.register_blueprint(warehouse_settings_bp, url_prefix="/api/v1")
+    from .routes.calculations import init_app as init_calculations
+    init_calculations(app)
     return app
