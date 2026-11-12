@@ -141,7 +141,11 @@ def _positive_decimal(value, path):
         raise DemandGroupError("VALIDATION_ERROR", "正の10進文字列を指定してください。", path=path)
     if len(match.group(2) or "") > 2:
         raise DemandGroupError("DECIMAL_PRECISION", "小数第2位までで指定してください。", path=path)
-    decimal = Decimal(value)
+    try:
+        decimal = Decimal(value)
+    except ValueError:
+        # 純Python版Decimalでは巨大な数字列が整数変換の桁数制限に達する。
+        raise DemandGroupError("NUMBER_NOT_REPRESENTABLE", "数値の表現範囲を超えています。", path=path) from None
     if decimal <= 0:
         raise DemandGroupError("VALIDATION_ERROR", "0より大きい値を指定してください。", path=path)
     return decimal
