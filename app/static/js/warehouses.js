@@ -40,6 +40,11 @@
     const editLink = document.createElement("a");
     editLink.href = `/warehouses/${warehouse.warehouse_id}/edit`;  editLink.textContent = "編集";
     actionCell.appendChild(editLink);
+    const stockLink = document.createElement("a");
+    stockLink.href = `/stocks?warehouse_id=${encodeURIComponent(warehouse.warehouse_id)}`;
+    stockLink.textContent = "在庫を見る";
+    stockLink.setAttribute("aria-label", `${warehouse.name}の在庫を見る`);
+    actionCell.append(" ／ ", stockLink);
     tr.appendChild(actionCell);
     return tr;
   }

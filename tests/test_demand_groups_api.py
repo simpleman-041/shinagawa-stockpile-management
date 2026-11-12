@@ -1,6 +1,7 @@
 """DG01〜04・IC01、Q54〜58・73、TX10の契約と永続化を隔離DBで確認する。"""
 
 import json
+import _pydecimal
 import sqlite3
 from decimal import Decimal
 
@@ -8,6 +9,7 @@ import pytest
 
 from app import create_app, db
 from app.services import demand_groups as service
+from app.routes import demand_groups as routes
 
 
 ROOT = "/api/v1/demand-groups"
@@ -111,6 +113,15 @@ def assert_error(response, status, code, path=None):
     assert error["retryable"] is (code == "STORAGE_BUSY")
     if path is not None:
         assert error["fields"][0]["path"] == path
+
+
+def test_large_factor_with_python_decimal_preserves_database(client, seeded, monkeypatch):
+    """純Python版Decimalの巨大整数変換でも、契約の422とDB不変を保証する。"""
+    monkeypatch.setattr(routes, "Decimal", _pydecimal.Decimal)
+    before = stored(seeded)
+    response = client.put(CONVERSION, json=conversion_input(group_id="1", factor="9" * 5000))
+    assert_error(response, 422, "NUMBER_NOT_REPRESENTABLE", "/factor")
+    assert stored(seeded) == before
 
 
 def test_empty_list_and_draft_group_persist(client, app):
