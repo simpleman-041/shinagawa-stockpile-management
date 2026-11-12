@@ -49,6 +49,10 @@
       settings.href = `/shelters/${shelter.shelter_id}/warehouse-settings`;
       settings.textContent = " 倉庫対応・共有割当";
       action.appendChild(settings);
+      const calculation = document.createElement("a");
+      calculation.href = `/calculations?shelter_id=${shelter.shelter_id}`;
+      calculation.textContent = " 備蓄計算";
+      action.appendChild(calculation);
       row.appendChild(action);
       tableBody.appendChild(row);
     });

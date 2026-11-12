@@ -34,6 +34,7 @@
           {% if mode == "edit" %}
             <p>設定状態：{{ "完了" if shelter.setup_state == "complete" else "編集中" }}</p>
             <a href="/shelters/{{ shelter.shelter_id }}/warehouse-settings">倉庫対応・共有割当と設定完了の確認へ</a>
+            <a href="/calculations?shelter_id={{ shelter.shelter_id }}">備蓄計算へ</a>
           {% endif %}
           <div>
             <button type="submit">{% if mode == "edit" %}保存{% else %}登録{% endif %}</button>

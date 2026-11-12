@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ '計算履歴' if mode == 'history' else '保存した備蓄計算' if mode == 'saved' else '備蓄計算' }} | UnFire</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/stocks.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/calculations.css') }}">
+</head>
+<body data-mode="{{ mode }}" {% if mode == 'saved' %}data-run-id="{{ run_id }}"{% endif %}>
+<main class="page-shell">
+  <header class="page-header"><h1>{{ '計算履歴' if mode == 'history' else '保存した備蓄計算' if mode == 'saved' else '備蓄計算' }}</h1>
+    <nav><a href="/shelters">避難所一覧</a><a href="/calculations">備蓄計算</a><a href="/calculation-runs">計算履歴</a><a href="/stocks">在庫一覧</a></nav>
+  </header>
+  <p id="calculation-loading" role="status">読み込み中…</p>
+  <p id="calculation-error" role="alert" class="status error" hidden></p>
+  <p id="calculation-success" role="status" hidden></p>
+  <noscript>計算・保存・履歴表示にはJavaScriptを有効にしてください。</noscript>
+  {% if mode == 'calculate' %}
+  <section class="panel"><h2>試算条件</h2>
+    <form id="calculation-form" class="stock-form"><fieldset id="calculation-inputs" disabled>
+      <legend>避難所と目標</legend>
+      <label>避難所<select name="shelter_id" id="calculation-shelter" required><option value="">選択してください</option></select></label>
+      <label>試算人数<input name="target_people" id="target-people" type="number" min="1" max="9007199254740991" step="1" required></label>
+      <label>試算日数<input name="target_days" id="target-days" type="number" min="1" max="9007199254740991" step="1" required></label>
+      <button type="submit">計算する</button>
+    </fieldset></form>
+    <p id="formal-target"></p><p id="shelter-links"></p>
+    <p>登録済みの全需要と使用量・品目換算を使います。人数・日数の変更は今回の試算だけに適用します。基準日は実行当日（日本時間）です。</p>
+    <p>正式目標は避難所編集で更新してください。計算結果は「この結果を保存」で記録します。</p>
+  </section>
+  {% endif %}
+  {% if mode == 'history' %}
+  <section class="panel"><h2>計算日時で検索</h2>
+    <form id="history-form" class="stock-form"><fieldset id="history-inputs" disabled><legend>絞り込み</legend>
+      <label>避難所<select name="shelter_id" id="calculation-shelter"><option value="">すべて</option></select></label>
+      <label>状態<select name="result_state"><option value="">すべて</option><option value="computed">計算済み</option><option value="partial">一部計算不可</option><option value="unavailable">計算不可</option></select></label>
+      <label>開始日時（含む・端末の時間帯）<input name="from" type="datetime-local" step="1"></label>
+      <label>終了日時（含まない・端末の時間帯）<input name="to" type="datetime-local" step="1"></label>
+      <button>検索</button>
+    </fieldset></form>
+    <p id="history-count" role="status"></p><p id="history-empty" hidden>条件に一致する保存済み計算はありません。</p>
+    <div id="history-table" class="table-wrap" hidden><table><thead><tr><th>計算ID</th><th>当時の避難所名</th><th>計算日時（日本時間）</th><th>目標</th><th>状態</th><th>総合人数・日数</th><th>詳細</th></tr></thead><tbody id="history-rows"></tbody></table></div>
+    <div class="pagination"><button id="history-previous" type="button" disabled>前へ</button><button id="history-next" type="button" disabled>次へ</button></div>
+  </section>
+  {% endif %}
+  {% if mode != 'history' %}
+  <section id="calculation-result" class="panel" hidden aria-label="計算結果">
+    <h2 id="result-title">計算結果</h2>
+    <p id="result-metadata"></p><p id="result-state"></p><p id="result-minimum" class="calculation-minimum"></p>
+    <p id="result-warning" class="calculation-warning" hidden></p><p id="result-reason" class="calculation-reason" hidden></p>
+    <div class="table-wrap"><table><caption>需要別の充足状況（異なる単位の数量は合計しません）</caption><thead><tr><th>需要・単位</th><th>必要量</th><th>算入量</th><th>充足量</th><th>不足量・調達の目安</th><th>充足率</th><th>対応可能人数</th><th>対応可能日数</th><th>状態・参考量・理由</th></tr></thead><tbody id="result-groups"></tbody></table></div>
+    <details><summary>計算条件・算入根拠を確認</summary><div id="result-details"></div></details>
+    <p>登録値に基づく目安です。期間中の消費・補給・期限到来による変化は予測しません。充足率の表示は小数第1位、人数・日数は切り捨てです。</p>
+    <p id="correction-links"></p>
+    {% if mode == 'calculate' %}
+    <form id="save-calculation-form" class="stock-form"><fieldset id="save-inputs" disabled><legend>表示中の計算時点の結果を保存</legend>
+      <label>訂正元計算ID（任意）<input name="correction_of_run_id" inputmode="numeric" pattern="[1-9][0-9]*"></label>
+      <button>この結果を保存</button>
+    </fieldset></form>
+    <p id="save-state">未保存です。一部計算不可でも当時の理由と根拠を保存できます。</p>
+    <p>保存後の編集・削除・上書きはできません。未保存結果はサーバー再起動で失われます。通信失敗時は履歴を確認してから再操作してください。</p>
+    {% endif %}
+  </section>
+  {% endif %}
+</main>
+<script src="{{ url_for('static', filename='js/calculations.js') }}" defer></script>
+</body></html>
