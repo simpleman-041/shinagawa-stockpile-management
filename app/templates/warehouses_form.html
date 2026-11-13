@@ -47,7 +47,8 @@
             type="text"
             required
             value="{{ warehouse.name if mode == 'edit' else '' }}"
-          >
+           aria-describedby="warehouse-error-name">
+          <p id="warehouse-error-name" class="status error" hidden></p>
 
           <label for="facility-type">
             施設種別
@@ -58,7 +59,8 @@
             type="text"
             required
             value="{{ warehouse.facility_type if mode == 'edit' else '' }}"
-          >
+           aria-describedby="warehouse-error-facility_type">
+          <p id="warehouse-error-facility_type" class="status error" hidden></p>
 
           <label for="warehouse-address">
             住所
@@ -69,7 +71,8 @@
             type="text"
             required
             value="{{ warehouse.address if mode == 'edit' else '' }}"
-          >
+           aria-describedby="warehouse-error-address">
+          <p id="warehouse-error-address" class="status error" hidden></p>
 
           <label for="warehouse-latitude">
             緯度
@@ -82,7 +85,8 @@
             max="90"
             step="any"
             value="{% if mode == 'edit' and warehouse.latitude is not none %}{{ warehouse.latitude }}{% endif %}"
-          >
+           aria-describedby="warehouse-error-latitude">
+          <p id="warehouse-error-latitude" class="status error" hidden></p>
 
           <label for="warehouse-longitude">
             経度
@@ -95,7 +99,8 @@
             max="180"
             step="any"
             value="{% if mode == 'edit' and warehouse.longitude is not none %}{{ warehouse.longitude }}{% endif %}"
-          >
+           aria-describedby="warehouse-error-longitude">
+          <p id="warehouse-error-longitude" class="status error" hidden></p>
 
           <label for="capacity-m3">
             保管容量（立方メートル）
@@ -105,9 +110,10 @@
             name="capacity_m3"
             type="number"
             min="0"
-            step="any"
+            step="0.01"
             value="{% if mode == 'edit' and warehouse.capacity_m3 is not none %}{{ warehouse.capacity_m3 }}{% endif %}"
-          >
+           aria-describedby="warehouse-error-capacity_m3">
+          <p id="warehouse-error-capacity_m3" class="status error" hidden></p>
 
           <div>
             <button type="submit">

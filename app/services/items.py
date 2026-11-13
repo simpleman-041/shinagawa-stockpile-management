@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 from app import db
+from app.services.master_values import decimal_text
 
 
 class ItemConflict(Exception):
@@ -19,9 +20,7 @@ def _item_from_row(row):
     item = dict(row)
     item["item_id"] = str(item["item_id"])
     if item["unit_volume_m3"] is not None:
-        value = format(Decimal(str(item["unit_volume_m3"])), "f")
-        integer_part, _, fraction_part = value.partition(".")
-        item["unit_volume_m3"] = f"{integer_part}.{fraction_part[:2].ljust(2, '0')}"
+        item["unit_volume_m3"] = decimal_text(item["unit_volume_m3"])
     item["is_divisible"] = bool(item["is_divisible"])
     return item
 
@@ -108,14 +107,16 @@ def post_item(
 
 def _has_fractional_values(connection, item_id):
     checks = (
-        ("stocks", "quantity"),
-        ("stock_allocations", "quantity"),
-        ("stock_thresholds", "minimum_quantity"),
+        ("stocks", "SELECT quantity FROM stocks WHERE item_id = ?"),
+        (
+            "stock_allocations",
+            "SELECT a.quantity FROM stock_allocations AS a "
+            "JOIN stocks AS s ON s.stock_id = a.stock_id WHERE s.item_id = ?",
+        ),
+        ("stock_thresholds", "SELECT minimum_quantity FROM stock_thresholds WHERE item_id = ?"),
     )
-    for table, column in checks:
-        rows = connection.execute(
-            f"SELECT {column} FROM {table} WHERE item_id = ?", (item_id,)
-        ).fetchall()
+    for table, sql in checks:
+        rows = connection.execute(sql, (item_id,)).fetchall()
         for row in rows:
             value = Decimal(str(row[0]))
             if value != value.to_integral_value():

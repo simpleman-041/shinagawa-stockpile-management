@@ -79,6 +79,11 @@ def calculations_page():
     return render_template("calculations.html", mode="calculate")
 
 
+@pages_bp.get("/calculation-conditions")
+def calculation_conditions_page():
+    return render_template("calculation_conditions.html")
+
+
 @pages_bp.get("/calculation-runs")
 def calculation_history_page():
     return render_template("calculations.html", mode="history")

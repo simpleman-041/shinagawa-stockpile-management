@@ -14,6 +14,7 @@
         <p class="lead">住所と正式目標を管理します。</p>
       </header>
       <section class="panel">
+        <h2>{{ '名称・住所' if mode == 'edit' else '避難所情報' }}</h2>
         <form id="shelter-form" data-mode="{{ mode }}" {% if mode == "edit" %}data-shelter-id="{{ shelter.shelter_id }}"{% endif %}>
           <label>
             避難所名
@@ -23,26 +24,45 @@
             住所
             <input name="address" type="text" required value="{{ shelter.address if mode == 'edit' else '' }}">
           </label>
+          {% if mode != "edit" %}
           <label>
             目標人数（未設定可）
-            <input name="target_people" type="number" min="1" step="1" value="{% if mode == 'edit' and shelter.target_people is not none %}{{ shelter.target_people }}{% endif %}">
+            <input name="target_people" type="number" min="1" max="9007199254740991" step="1">
           </label>
           <label>
             目標日数（未設定可）
-            <input name="target_days" type="number" min="1" step="1" value="{% if mode == 'edit' and shelter.target_days is not none %}{{ shelter.target_days }}{% endif %}">
+            <input name="target_days" type="number" min="1" max="9007199254740991" step="1">
           </label>
-          {% if mode == "edit" %}
-            <p>設定状態：{{ "完了" if shelter.setup_state == "complete" else "編集中" }}</p>
-            <a href="/shelters/{{ shelter.shelter_id }}/warehouse-settings">倉庫対応・共有割当と設定完了の確認へ</a>
-            <a href="/calculations?shelter_id={{ shelter.shelter_id }}">備蓄計算へ</a>
           {% endif %}
           <div>
-            <button type="submit">{% if mode == "edit" %}保存{% else %}登録{% endif %}</button>
+            <button type="submit">{% if mode == "edit" %}名称・住所を保存{% else %}登録{% endif %}</button>
             <a href="{{ url_for('pages.shelters_page') }}">キャンセル</a>
           </div>
           <p id="shelter-form-error" class="status error" role="alert" hidden></p>
+          <p id="shelter-form-success" class="status" role="status" hidden></p>
         </form>
       </section>
+      {% if mode == "edit" %}
+      <section class="panel">
+        <h2>正式目標</h2>
+        <p>名称・住所とは別に保存します。備蓄計算の初期値になります。</p>
+        <form id="shelter-targets-form" data-shelter-id="{{ shelter.shelter_id }}">
+          <label>目標人数
+            <input name="target_people" type="number" min="1" max="9007199254740991" step="1" required value="{{ shelter.target_people if shelter.target_people is not none else '' }}">
+          </label>
+          <label>目標日数
+            <input name="target_days" type="number" min="1" max="9007199254740991" step="1" required value="{{ shelter.target_days if shelter.target_days is not none else '' }}">
+          </label>
+          <button type="submit">正式目標を保存</button>
+          <p id="shelter-targets-error" class="status error" role="alert" hidden></p>
+          <p id="shelter-targets-success" class="status" role="status" hidden></p>
+        </form>
+        <p>設定状態：{{ "完了" if shelter.setup_state == "complete" else "編集中" }}</p>
+        <nav><a href="/shelters/{{ shelter.shelter_id }}/warehouse-settings">倉庫対応・共有割当と設定完了の確認へ</a>
+          <a href="/calculations?shelter_id={{ shelter.shelter_id }}">備蓄計算へ</a>
+          <a href="{{ url_for('pages.shelters_page') }}">避難所一覧へ</a></nav>
+      </section>
+      {% endif %}
     </main>
     <script src="{{ url_for('static', filename='js/shelters-form.js') }}" defer></script>
   </body>

@@ -152,7 +152,15 @@
     lock(true);
     try {
       if (mode === "saved") { render((await api(`/calculation-runs/${document.body.dataset.runId}`)).data,true); return; }
-      shelters = (await api("/shelters")).data;
+      // 選択肢は初期化時だけ全ページ取得し、計算・履歴検索では再取得しない。
+      shelters = [];
+      let offset = 0;
+      while (true) {
+        const page = await api(`/shelters?limit=200&offset=${offset}`);
+        shelters.push(...page.data); offset += page.data.length;
+        if (offset >= page.page.total) break;
+        if (!page.data.length) throw new Error("避難所一覧が変更されました。画面を再読み込みしてください。");
+      }
       const select = $("calculation-shelter");
       shelters.forEach(s => { const o = node("option",s.name); o.value = String(s.shelter_id); select.append(o); });
       if (query.has("shelter_id")) select.value = query.get("shelter_id");

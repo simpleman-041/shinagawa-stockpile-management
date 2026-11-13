@@ -7,6 +7,16 @@
     if (!form) {
         return;
     }
+    let busy = false;
+    const fields = ["name", "facility_type", "address", "latitude", "longitude", "capacity_m3"];
+    function clearErrors() {
+        errorMessage.hidden = true; errorMessage.textContent = "";
+        for (const name of fields) {
+            const output = document.querySelector(`#warehouse-error-${name}`);
+            if (output) { output.textContent = ""; output.hidden = true; }
+            form.elements[name]?.removeAttribute("aria-invalid");
+        }
+    }
 
     function numberOrNull(value) {
         return value === "" ? null : Number(value);
@@ -14,6 +24,8 @@
 
     form.addEventListener("submit", async function (event) {
         event.preventDefault();
+        if (busy) return;
+        clearErrors();
 
         const formData = new FormData(form);
         const payload = {
@@ -22,7 +34,7 @@
             address: formData.get("address"),
             latitude: numberOrNull(formData.get("latitude")),
             longitude: numberOrNull(formData.get("longitude")),
-            capacity_m3: numberOrNull(formData.get("capacity_m3")),
+            capacity_m3: formData.get("capacity_m3") === "" ? null : formData.get("capacity_m3"),
         };
 
         const mode = form.dataset.mode;
@@ -32,6 +44,9 @@
                 ? `/api/v1/warehouses/${warehouseId}`
                 : "/api/v1/warehouses";
         const method = mode === "edit" ? "PATCH" : "POST";
+        busy = true;
+        const submit = form.querySelector('button[type="submit"]');
+        submit.disabled = true;
 
         try {
             const response = await fetch(url, {
@@ -51,16 +66,32 @@
             }
 
             if (errorMessage) {
-                errorMessage.textContent =
-                    result.message || "倉庫情報の保存に失敗しました。";
+                errorMessage.textContent = response.status >= 500
+                    ? "サーバーで保存を確認できませんでした。入力は保持しています。倉庫一覧で保存結果を確認してください。"
+                    : result.error?.message || "倉庫情報の保存に失敗しました。";
                 errorMessage.hidden = false;
+                const errors = result.error?.fields;
+                for (const field of Array.isArray(errors) ? errors : errors ? [errors] : []) {
+                    const name = field.path?.replace(/^\/body\//, "/").slice(1);
+                    if (!fields.includes(name)) {
+                        if (field.message && response.status < 500) errorMessage.textContent += ` ${field.message}`;
+                        continue;
+                    }
+                    const output = document.querySelector(`#warehouse-error-${name}`);
+                    if (output && response.status < 500) {
+                        output.textContent = field.message; output.hidden = false;
+                        form.elements[name].setAttribute("aria-invalid", "true");
+                    }
+                }
             }
         } catch (error) {
             if (errorMessage) {
                 errorMessage.textContent =
-                    "通信に失敗しました。時間をおいて再度お試しください。";
+                    "通信または応答の確認に失敗しました。入力は保持しています。倉庫一覧で保存結果を確認してから再操作してください。";
                 errorMessage.hidden = false;
             }
+        } finally {
+            busy = false; submit.disabled = false;
         }
     });
 })();

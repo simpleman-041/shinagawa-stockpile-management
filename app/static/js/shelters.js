@@ -7,6 +7,9 @@
   const tableWrap = document.querySelector("#shelter-table-wrap");
   const tableBody = document.querySelector("#shelter-table-body");
   const count = document.querySelector("#shelter-count");
+  const previous = document.querySelector("#shelter-previous");
+  const next = document.querySelector("#shelter-next");
+  let offset = 0, total = 0, busy = false, filters = new URLSearchParams();
 
   function showError(message) {
     error.textContent = message;
@@ -24,7 +27,7 @@
 
   function render(shelters) {
     tableBody.replaceChildren();
-    count.textContent = `${shelters.length}件`;
+    count.textContent = `${total}件${shelters.length ? ` ／ ${offset + 1}〜${offset + shelters.length}件目` : ""}`;
     loading.hidden = true;
     error.hidden = true;
     empty.hidden = shelters.length !== 0;
@@ -58,10 +61,11 @@
     });
   }
 
-  async function loadShelters() {
-    const params = new URLSearchParams();
-    const query = queryInput.value.trim();
-    if (query) params.set("q", query);
+  async function loadShelters(start = 0, selectedFilters = filters) {
+    if (busy) return;
+    busy = true; previous.disabled = next.disabled = true;
+    const params = new URLSearchParams(selectedFilters);
+    params.set("limit", "50"); params.set("offset", String(start));
     loading.hidden = false;
     empty.hidden = true;
     tableWrap.hidden = true;
@@ -70,15 +74,23 @@
       const response = await fetch(`/api/v1/shelters?${params.toString()}`);
       const result = await response.json();
       if (!response.ok) throw new Error(result.error?.message || "避難所情報を取得できませんでした。");
+      filters = new URLSearchParams(selectedFilters); offset = start; total = result.page.total;
       render(result.data);
     } catch (reason) {
       showError(reason.message);
+    } finally {
+      busy = false; previous.disabled = offset === 0; next.disabled = offset + 50 >= total;
     }
   }
 
   searchForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    loadShelters();
+    if (busy) return;
+    const selectedFilters = new URLSearchParams();
+    if (queryInput.value.trim()) selectedFilters.set("q", queryInput.value.trim());
+    return loadShelters(0, selectedFilters);
   });
+  previous.addEventListener("click", () => loadShelters(Math.max(0, offset - 50)));
+  next.addEventListener("click", () => loadShelters(offset + 50));
   loadShelters();
 })();

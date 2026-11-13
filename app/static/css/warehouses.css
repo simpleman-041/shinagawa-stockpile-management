@@ -24,6 +24,11 @@ button:hover { background: #1d4ed8; }
 .count { color: #64748b; font-size: .9rem; }
 .status { margin: 20px 0 0; color: #64748b; }
 .error { color: #b91c1c; }
+.threshold-form { margin: 18px 0; }
+.threshold-form fieldset { display: grid; gap: 10px; border: 1px solid #cbd5e1; border-radius: 7px; padding: 16px; }
+.threshold-form input, .threshold-form select { width: 100%; min-width: 0; }
+.threshold-form .status { margin: 0; }
+.threshold-form button:disabled { opacity: .6; cursor: wait; }
 .table-wrap { margin-top: 16px; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 13px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: top; }
