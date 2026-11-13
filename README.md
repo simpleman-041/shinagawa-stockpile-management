@@ -121,8 +121,11 @@ with transaction(get_db(), write=False) as connection:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+node --test "tests/*.test.cjs"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
+
+Node.js 24.19.0を使用します。JavaScriptテストは`tests/*.test.cjs`を全件実行し、失敗時は非0で終了します。`develop`向けPull RequestのCIでも同じコマンドを実行します。Node.jsはpytestより前に用意し、Python側の実JS・HTTP連携テストにも使用します。npm依存の追加はありません。
 
 pytestの一時フォルダに検証専用DBを作成するため、`instance/` の開発DBは更新しません。
 初期化、接続設定、制約、ロールバック、ロック失敗、再初期化拒否、CLIを検証します。
