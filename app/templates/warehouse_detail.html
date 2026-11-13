@@ -1,5 +1,29 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ warehouse.name }} | UnFire</title><link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}"></head>
-<body><main class="page-shell"><header class="page-header"><h1>{{ warehouse.name }}</h1><nav><a href="/map">地図</a> ／ <a href="/warehouses">倉庫一覧</a></nav></header>
+<body data-warehouse-id="{{ warehouse.warehouse_id }}"><main class="page-shell"><header class="page-header"><h1>{{ warehouse.name }}</h1><nav><a href="/map">地図</a> ／ <a href="/warehouses">倉庫一覧</a></nav></header>
 <section class="panel"><h2>倉庫情報</h2><dl><dt>施設種別</dt><dd>{{ warehouse.facility_type }}</dd><dt>住所</dt><dd>{{ warehouse.address }}</dd><dt>座標</dt><dd>{% if warehouse.latitude is none %}未確認{% else %}{{ warehouse.latitude }}, {{ warehouse.longitude }}{% endif %}</dd><dt>保管可能容量</dt><dd>{{ '未設定' if warehouse.capacity_m3 is none else warehouse.capacity_m3|string + ' m³' }}</dd><dt>計算区分</dt><dd>{{ {'dedicated':'専用','shared':'共有'}.get(warehouse.allocation_mode,'未設定') }}</dd></dl>
-<p><a href="/stocks?warehouse_id={{ warehouse.warehouse_id }}">この倉庫の在庫を見る</a> ／ <a href="/warehouses/{{ warehouse.warehouse_id }}/edit">倉庫を編集</a></p><p>在庫は架空のサンプルデータです。</p></section></main></body></html>
+<p><a href="/stocks?warehouse_id={{ warehouse.warehouse_id }}">この倉庫の在庫を見る</a> ／ <a href="/warehouses/{{ warehouse.warehouse_id }}/edit">倉庫を編集</a></p><p>在庫は架空のサンプルデータです。</p></section>
+<section class="panel" aria-labelledby="threshold-heading">
+  <h2 id="threshold-heading">{{ warehouse.name }}の日常在庫基準</h2>
+  <p>品目の管理単位で、同じ倉庫・品目の使用可能数と比較します。期限切れ・期限未確認は日常比較から除きます。在庫数量は変更しません。</p>
+  <p>未設定と0は異なります。0も設定済みの基準です。設定解除は提供していません。</p>
+  <p id="threshold-loading" class="status" role="status">読み込み中…</p>
+  <p id="threshold-error" class="status error" role="alert" hidden></p>
+  <p id="threshold-success" class="status" role="status" hidden></p>
+  <p id="threshold-empty" class="status" hidden>品目が未登録です。品目一覧から登録してください。</p>
+  <form id="threshold-form" class="threshold-form">
+    <fieldset id="threshold-inputs" disabled>
+      <legend>対象品目と基準</legend>
+      <label for="threshold-item">品目</label>
+      <select id="threshold-item" name="item_id" required></select>
+      <p id="threshold-current" role="status"></p>
+      <p id="threshold-warning" role="status"></p>
+      <label for="threshold-value">日常在庫基準 <span id="threshold-unit"></span></label>
+      <input id="threshold-value" name="minimum_quantity" type="number" min="0" step="0.01" required aria-describedby="threshold-value-error">
+      <p id="threshold-value-error" class="status error" hidden></p>
+      <button id="threshold-save" type="submit">基準を保存</button>
+    </fieldset>
+  </form>
+  <button id="threshold-refresh" type="button">現在の基準・警告を再取得</button>
+</section>
+</main><script src="{{ url_for('static', filename='js/warehouse-thresholds.js') }}" defer></script></body></html>

@@ -18,6 +18,32 @@ def client(app):
     return app.test_client()
 
 
+@pytest.mark.parametrize("value", ["9007199254740993.01", "9007199254740993", "12345678901234567890.12"])
+def test_volume_rejects_real_round_trip_loss(client, app, value):
+    response = client.post("/api/v1/items", json={
+        "name": "precision", "category": "test", "quantity_unit": "L",
+        "is_divisible": True, "near_expiry_days": 1, "unit_volume_m3": value,
+    })
+    assert response.status_code == 422
+    with app.app_context():
+        assert db.get_db().execute("SELECT count(*) FROM items").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("value, expected", [("0", "0.00"), ("1.23", "1.23"), ("9007199254740992", "9007199254740992.00")])
+def test_volume_round_trip_is_exact(client, value, expected):
+    response = client.post("/api/v1/items", json={
+        "name": "precision", "category": "test", "quantity_unit": "L",
+        "is_divisible": True, "near_expiry_days": 1, "unit_volume_m3": value,
+    })
+    assert response.status_code == 201
+    item_id = response.json["data"]["item_id"]
+    for _ in range(3):
+        assert client.get(f"/api/v1/items/{item_id}").json["data"]["unit_volume_m3"] == expected
+        updated = client.patch(f"/api/v1/items/{item_id}", json={"unit_volume_m3": expected})
+        assert updated.status_code == 200
+        assert updated.json["data"]["unit_volume_m3"] == expected
+
+
 @pytest.fixture
 def seeded_items(app):
     with app.app_context():
@@ -125,3 +151,70 @@ def test_closed_item_allows_normal_edit_but_not_state_edit(client, seeded_items)
     assert response.status_code == 200
     assert response.json["data"]["name"] == "終了済み品目"
     assert response.json["data"]["registration_state"] == "closed"
+
+
+def _stored_tables(app):
+    with app.app_context():
+        connection = db.get_db()
+        tables = connection.execute(
+            "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+        return {
+            row[0]: [tuple(value) for value in connection.execute(f'SELECT * FROM "{row[0]}" ORDER BY 1, 2')]
+            for row in tables
+        }
+
+
+@pytest.mark.parametrize(
+    "case,item_id,status,source",
+    [
+        ("no_stock", 1, 200, None),
+        ("integers", 2, 200, None),
+        ("fractional_stock", 3, 409, "stocks"),
+        ("fractional_allocation", 2, 409, "stock_allocations"),
+        ("fractional_threshold", 2, 409, "stock_thresholds"),
+        ("unrelated_fractions", 2, 200, None),
+    ],
+)
+def test_divisibility_change_checks_stock_allocation_and_threshold_atomically(
+    app, client, seeded_items, case, item_id, status, source
+):
+    """DB設計TX10・AUD-03: 自品目の整数整合だけを確認し、拒否時は全表不変。"""
+    with app.app_context(), db.transaction(db.get_db()) as connection:
+        connection.execute("UPDATE items SET is_divisible = 1 WHERE item_id = 1")
+        connection.execute("UPDATE warehouses SET allocation_mode = 'shared' WHERE warehouse_id = 1")
+        connection.execute("INSERT INTO shelters (shelter_id, name, address) VALUES (1, '試験避難所', '試験住所')")
+        connection.execute("INSERT INTO shelter_warehouses VALUES (1, 1)")
+        connection.execute(
+            "INSERT INTO stock_allocations VALUES (1, 1, ?)",
+            (1.5 if case == "fractional_allocation" else 2,),
+        )
+        connection.execute(
+            "INSERT INTO stock_thresholds VALUES (1, 2, ?)",
+            (1.5 if case == "fractional_threshold" else 3,),
+        )
+        if case == "unrelated_fractions":
+            connection.execute("INSERT INTO stock_allocations VALUES (2, 1, 0.5)")
+            connection.execute("INSERT INTO stock_thresholds VALUES (1, 3, 0.5)")
+
+    before = _stored_tables(app)
+    response = client.patch(
+        f"/api/v1/items/{item_id}", json={"is_divisible": False, "name": "変更後の品目"}
+    )
+    assert response.status_code == status, response.json
+    after = _stored_tables(app)
+    if status == 409:
+        assert response.json["error"]["code"] == "UNIT_HAS_STOCK"
+        assert response.json["error"]["details"]["source"] == source
+        assert after == before
+    else:
+        assert response.json["data"]["is_divisible"] is False
+        saved = client.get(f"/api/v1/items/{item_id}").json["data"]
+        assert saved["is_divisible"] is False
+        assert saved["name"] == "変更後の品目"
+        assert {k: v for k, v in after.items() if k != "items"} == {
+            k: v for k, v in before.items() if k != "items"
+        }
+        assert [row for row in after["items"] if row[0] != item_id] == [
+            row for row in before["items"] if row[0] != item_id
+        ]

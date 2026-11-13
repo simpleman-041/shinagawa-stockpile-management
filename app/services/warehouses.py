@@ -1,6 +1,8 @@
 """倉庫一覧の読取処理。"""
 
 from app import db
+from app.services.master_values import decimal_text
+from app.services.stocks import StockError, stored_quantity
 
 
 class ThresholdUnitError(Exception):
@@ -92,10 +94,21 @@ def patch_warehouse(connection, warehouse_id, changes):
     set_clause = ", ".join(updates)
 
     with db.transaction(connection, write=True):
+        current = connection.execute("SELECT * FROM warehouses WHERE warehouse_id=?", (warehouse_id,)).fetchone()
+        if current is None:
+            return None
+        latitude = changes.get("latitude", current["latitude"])
+        longitude = changes.get("longitude", current["longitude"])
+        if (latitude is None) != (longitude is None):
+            raise StockError("VALIDATION_ERROR", "緯度と経度は両方数値または両方nullにしてください。", path="/latitude")
         connection.execute(
             f"UPDATE warehouses SET {set_clause} WHERE warehouse_id = ?",
             [*parameters, warehouse_id],
         )
+        result = dict(connection.execute("SELECT * FROM warehouses WHERE warehouse_id=?", (warehouse_id,)).fetchone())
+        # 保存済みの規格外容量を通常編集で隠さず、応答を構成できない更新も取り消す。
+        decimal_text(result["capacity_m3"])
+        return result
 
 def get_warehouse(connection, warehouse_id):
     """倉庫を取得する。"""
@@ -112,19 +125,21 @@ def get_warehouse(connection, warehouse_id):
         return dict(row) if row is not None else None
 
 
-def list_thresholds(connection, warehouse_id):
+def list_thresholds(connection, warehouse_id, *, limit=50, offset=0):
     """倉庫に設定済みの基準だけを返す。未設定の品目は行を返さない。"""
     with db.transaction(connection, write=False):
+        total = connection.execute("SELECT count(*) FROM stock_thresholds WHERE warehouse_id=?", (warehouse_id,)).fetchone()[0]
         rows = connection.execute(
             """
             SELECT warehouse_id, item_id, minimum_quantity
             FROM stock_thresholds
             WHERE warehouse_id = ?
             ORDER BY item_id ASC
+            LIMIT ? OFFSET ?
             """,
-            (warehouse_id,),
+            (warehouse_id, limit, offset),
         ).fetchall()
-    return [dict(row) for row in rows]
+    return [dict(row) for row in rows], total
 
 
 def put_threshold(connection, warehouse_id, item_id, minimum_quantity):
@@ -143,6 +158,7 @@ def put_threshold(connection, warehouse_id, item_id, minimum_quantity):
 
         if not bool(item["is_divisible"]) and minimum_quantity != minimum_quantity.to_integral_value():
             raise ThresholdUnitError()
+        stored = stored_quantity(minimum_quantity, bool(item["is_divisible"]), "/minimum_quantity")
 
         existing = connection.execute(
             """
@@ -158,7 +174,7 @@ def put_threshold(connection, warehouse_id, item_id, minimum_quantity):
             ON CONFLICT (warehouse_id, item_id)
             DO UPDATE SET minimum_quantity = excluded.minimum_quantity
             """,
-            (warehouse_id, item_id, float(minimum_quantity)),
+            (warehouse_id, item_id, stored),
         )
         row = connection.execute(
             """

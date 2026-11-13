@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>計算条件管理 | UnFire</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/stocks.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/calculation-conditions.css') }}">
+</head>
+<body>
+<main class="page-shell">
+  <header class="page-header"><p class="eyebrow">UnFire</p><h1>計算条件管理</h1>
+    <nav><a href="/shelters">避難所一覧</a><a href="/calculations">備蓄計算</a><a href="/calculation-runs">計算履歴</a><a href="/items">品目一覧</a></nav>
+    <p class="lead">需要ごとの使用量・根拠と、品目の対応・換算を設定します。</p>
+  </header>
+  <p>登録した全需要が備蓄計算の対象です。需要を追加すると、条件が揃うまでは総合人数・日数が計算不可になる場合があります。</p>
+  <p>変更は次の試算に反映されます。保存済みの過去の計算結果は保持されます。</p>
+  <p id="conditions-loading" role="status">読み込み中…</p>
+  <p id="conditions-error" class="status error" role="alert" hidden></p>
+  <p id="conditions-success" class="status" role="status" hidden></p>
+  <button id="conditions-refresh" type="button">登録済みの条件を再取得</button>
+  <noscript>計算条件の取得・保存にはJavaScriptを有効にしてください。</noscript>
+
+  <section class="panel"><h2>需要一覧</h2>
+    <p id="groups-count" role="status"></p><p id="groups-empty" hidden>需要は未登録です。下の「需要を追加」から登録してください。</p>
+    <form id="group-select-form" class="stock-form"><fieldset id="select-controls" disabled><legend>編集する需要</legend>
+      <label>需要<select name="group_id" id="condition-group"><option value="">選択してください</option></select></label>
+      <button type="submit">条件を開く</button>
+    </fieldset></form>
+  </section>
+
+  <section class="panel"><h2>需要を追加</h2>
+    <p>名称以外は未設定で保存できます。空欄は未設定として扱い、使用量・係数の0とは区別します。</p>
+    <form id="group-create-form" class="stock-form"><fieldset id="create-controls" disabled><legend>新しい需要</legend>
+      <label>需要名<input name="name" required></label>
+      <label>共通計算単位<input name="calculation_unit" placeholder="例：L、食、回分"></label>
+      <label>共通単位の分割可否<select name="is_divisible"><option value="">未設定</option><option value="true">分割可</option><option value="false">分割不可（整数）</option></select></label>
+      <label>1人1日の使用量<input name="daily_usage" inputmode="decimal" aria-describedby="usage-help"></label>
+      <label>使用量の根拠・出典<textarea name="source_text" rows="2"></textarea></label>
+      <label>根拠の版・日付<input name="version_or_date"></label>
+      <label>適用条件<textarea name="conditions" rows="2"></textarea></label>
+      <button type="submit">確認して需要を追加</button>
+    </fieldset></form>
+    <p id="usage-help">使用量は正数・小数第2位まで。共通単位が分割不可の場合は整数です。未確認の値は空欄にしてください。</p>
+  </section>
+
+  <section class="panel"><h2 id="selected-group-title">選択需要の条件・全所属品目の換算</h2>
+    <p id="group-unselected">需要を選択して「条件を開く」を押してください。</p>
+    <form id="group-edit-form"><fieldset id="group-controls" disabled><legend>需要条件を一括保存</legend>
+      <div class="condition-fields">
+        <label>需要名<input name="name" required></label>
+        <label>共通計算単位<input name="calculation_unit"></label>
+        <label>共通単位の分割可否<select name="is_divisible"><option value="">未設定</option><option value="true">分割可</option><option value="false">分割不可（整数）</option></select></label>
+        <label>1人1日の使用量<input name="daily_usage" inputmode="decimal"></label>
+        <label>使用量の根拠・出典<textarea name="source_text" rows="2"></textarea></label>
+        <label>根拠の版・日付<input name="version_or_date"></label>
+        <label>適用条件<textarea name="conditions" rows="2"></textarea></label>
+      </div>
+      <p>共通単位を変更する際は、下の全品目の換算と根拠を再確認してください。未確認の係数は空欄で保存します。</p>
+      <p>換算係数は「品目の管理単位1あたりの共通計算単位量」です。正数・小数第2位までで指定します。</p>
+      <p id="conversions-empty" hidden>所属品目はありません。下の「品目の所属・換算」から対応を登録してください。</p>
+      <div class="table-wrap"><table><caption>全所属品目（登録終了品目も保持します）</caption>
+        <thead><tr><th>品目・状態</th><th>管理単位</th><th>換算係数</th><th>根拠・出典</th><th>版・日付</th><th>適用条件</th></tr></thead><tbody id="conversion-rows"></tbody>
+      </table></div>
+      <p>全所属品目をまとめて保存します。品目の追加や他需要への移動は、下の専用操作を使ってください。</p>
+      <button type="submit">確認して需要条件・全換算を保存</button>
+    </fieldset></form>
+  </section>
+
+  <section class="panel"><h2>品目の所属・換算</h2>
+    <p>未所属品目の追加、換算の個別変更、別需要への明示的な移動を行います。登録終了品目も選択できます。</p>
+    <p id="membership-empty" hidden>品目と需要の両方を登録すると設定できます。</p>
+    <form id="membership-form" class="stock-form"><fieldset id="membership-controls" disabled><legend>品目ごとの設定</legend>
+      <label>品目<select name="item_id" id="membership-item"><option value="">選択してください</option></select></label>
+      <p id="membership-current" role="status"></p>
+      <label>保存先の需要<select name="group_id" id="membership-group"><option value="">選択してください</option></select></label>
+      <p id="membership-unit"></p>
+      <label>換算係数<input name="factor" inputmode="decimal"></label>
+      <label>換算の根拠・出典<textarea name="source_text" rows="2"></textarea></label>
+      <label>根拠の版・日付<input name="version_or_date"></label>
+      <label>適用条件<textarea name="conditions" rows="2"></textarea></label>
+      <p>所属先を変える際は新しい共通単位に合わせて係数・根拠を再確認し、未確認の値は空欄にしてください。</p>
+      <button type="submit">確認して所属・換算を保存</button>
+    </fieldset></form>
+  </section>
+</main>
+<script src="{{ url_for('static', filename='js/calculation-conditions.js') }}" defer></script>
+</body></html>
