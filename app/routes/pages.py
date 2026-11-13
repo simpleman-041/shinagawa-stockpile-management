@@ -11,6 +11,19 @@ from app.services.warehouses import get_warehouse
 pages_bp = Blueprint("pages", __name__)
 
 
+@pages_bp.get("/map")
+def map_page():
+    return render_template("map.html")
+
+
+@pages_bp.get("/warehouses/<int:warehouse_id>")
+def warehouse_detail_page(warehouse_id):
+    warehouse = get_warehouse(db.get_db(), warehouse_id)
+    if warehouse is None:
+        abort(404)
+    return render_template("warehouse_detail.html", warehouse=warehouse)
+
+
 @pages_bp.get("/warehouses")
 def warehouses_page():
     return render_template("warehouses.html")
