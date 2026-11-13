@@ -1,0 +1,5 @@
+.condition-fields { display: grid; gap: 1rem; max-width: 42rem; }
+#group-controls { min-width: 0; }
+#conversion-rows input { width: 100%; min-width: 9rem; }
+textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px 12px; font: inherit; }
+button:disabled { opacity: .6; cursor: default; }

@@ -108,14 +108,16 @@ def post_item(
 
 def _has_fractional_values(connection, item_id):
     checks = (
-        ("stocks", "quantity"),
-        ("stock_allocations", "quantity"),
-        ("stock_thresholds", "minimum_quantity"),
+        ("stocks", "SELECT quantity FROM stocks WHERE item_id = ?"),
+        (
+            "stock_allocations",
+            "SELECT a.quantity FROM stock_allocations AS a "
+            "JOIN stocks AS s ON s.stock_id = a.stock_id WHERE s.item_id = ?",
+        ),
+        ("stock_thresholds", "SELECT minimum_quantity FROM stock_thresholds WHERE item_id = ?"),
     )
-    for table, column in checks:
-        rows = connection.execute(
-            f"SELECT {column} FROM {table} WHERE item_id = ?", (item_id,)
-        ).fetchall()
+    for table, sql in checks:
+        rows = connection.execute(sql, (item_id,)).fetchall()
         for row in rows:
             value = Decimal(str(row[0]))
             if value != value.to_integral_value():
