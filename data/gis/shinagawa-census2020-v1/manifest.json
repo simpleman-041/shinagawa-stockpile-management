@@ -1,0 +1,24 @@
+{
+  "dataset_id": "shinagawa-census2020-v1",
+  "version": "1.0",
+  "population_date": "2020-10-01",
+  "boundary_version": "令和2年国勢調査・CODH公開版2022-06-24",
+  "area_code_system": "令和2年国勢調査 KEY_CODE（原データの桁数を保持）",
+  "sources": [
+    {
+      "url": "https://geoshape.ex.nii.ac.jp/ka/resource/13109.html",
+      "usage_terms": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
+      "url": "https://geoshape.ex.nii.ac.jp/ka/topojson/2020/13/r2ka13109.topojson",
+      "usage_terms": "https://www.e-stat.go.jp/terms-of-use"
+    }
+  ],
+  "area_definition": "国勢調査の町丁・字等境界。原資料で区域名が欠ける1区域は名称未設定と表示。面積は原データAREA(m²)を1,000,000で除してkm²化。2020年人口JINKOを同一KEY_CODEで対応。JGD2000からWGS84へproj4 2.23.0の零パラメータ近似で変換（地図参考表示用、測量用途不可）。",
+  "area_unit": "km2",
+  "crs": "EPSG:4326",
+  "sha256": {
+    "areas_geojson": "a91125f53ad2bb8c8d53a38bdb5146ac4ef093eb74094c1a6a324e934ece979b",
+    "population_csv": "b6ca19357ce02a80fb35a45b0bc13e1218269d3d5bddcd23e2aff023fdba1853"
+  }
+}

@@ -226,6 +226,24 @@ node tests/calculations-ui.test.cjs
 実ブラウザでの検証は環境制約により確認待ちです。API、採用資料、対象外、検証結果は
 [備蓄計算の実装報告](docs/calculations-implementation-report.md) を参照してください。
 
+## GIS・地図表示
+
+倉庫一覧の「倉庫と人口の参考地図を見る」、または `/map` を開いてください。
+倉庫ピンと座標未確認一覧、倉庫の横概要、人口密度・町丁目境界を表示します。
+倉庫名・住所、品目名、期限接近／切れ／未確認、日常基準未満で検索できます。
+人口レイヤーを消しても倉庫ピンは残ります。
+
+人口・境界は2020年国勢調査の固定版です。基準日・出典・利用条件を画面に表示します。
+在庫は架空サンプルで、人口から需要人数や物資配分を決定しません。
+倉庫ピンはDBの登録座標を使います。既存の試験座標は実所在地と照合・補正してから利用してください。
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/test_gis.py -q
+node tests/map-ui.test.cjs
+```
+
+[固定版の出典・差替え方法](data/gis/README.md)、[実装・検証報告と確認待ち事項](docs/gis-implementation-report.md) を参照してください。
+
 ## 要件・設計資料
 
 [local-specs/README.md](local-specs/README.md) を参照してください。

@@ -466,3 +466,55 @@ def test_calculation_page_entry_and_saved_page_404(client):
     token = calculate(client).json["data"]["calculation_token"]
     save(client,token)
     assert 'data-run-id="1"' in client.get("/calculation-runs/1").text
+
+
+@pytest.mark.parametrize("state", ["computed", "partial", "unavailable"])
+def test_saved_result_and_corrections_survive_application_restart(app, client, state):
+    """API §7.1/7.4: 保存6表は永続、未保存トークンはプロセス内限定。"""
+    change(app, "UPDATE stocks SET expiry_state='unconfirmed'")
+    if state == "partial":
+        change(app, "INSERT INTO demand_groups VALUES(2,'未設定需要',NULL,NULL,NULL,NULL,NULL,NULL)")
+    elif state == "unavailable":
+        change(app, "UPDATE shelters SET setup_state='editing' WHERE shelter_id=1")
+    first = calculate(client).json["data"]
+    saved = save(client, first["calculation_token"])
+    assert saved.status_code == 201
+    assert saved.json["data"]["run"]["result_state"] == state
+    correction = calculate(client).json["data"]
+    corrected = save(client, correction["calculation_token"], correction_of_run_id="1")
+    assert corrected.status_code == 201
+    unsaved = calculate(client).json["data"]
+    expected_first = client.get(saved.headers["Location"]).json
+    expected_correction = corrected.json
+    assert expected_first["data"]["correction_run_ids"] == ["2"]
+
+    # 別Flaskアプリでメモリー保持を破棄し、同じ隔離DBのみ引き継ぐ。
+    # 再初期化や元アプリのextensionsの共有はしない。
+    restarted = create_app({"TESTING": True, "DATABASE": app.config["DATABASE"]})
+    assert restarted.extensions["calculations"]["entries"] == {}
+    before = stored(app)
+    with restarted.test_client() as new_client:
+        assert new_client.get(saved.headers["Location"]).json == expected_first
+        assert new_client.get(corrected.headers["Location"]).json == expected_correction
+        history = new_client.get("/api/v1/calculation-runs?shelter_id=1&result_state=" + state)
+        assert history.status_code == 200
+        assert [r["run_id"] for r in history.json["data"]] == ["2", "1"]
+        assert history.json["page"]["total"] == 2
+        assert new_client.get("/calculation-runs/1").status_code == 200
+        lost = new_client.get("/api/v1/calculations/" + unsaved["calculation_token"])
+        assert lost.status_code == 409
+        assert lost.json["error"]["code"] == "CALCULATION_TOKEN_UNAVAILABLE"
+        assert save(new_client, unsaved["calculation_token"]).status_code == 409
+    assert stored(app) == before
+
+
+def test_save_rejects_client_result_values_and_remains_retryable(app, client):
+    """CR01はトークンのみを使い、ブラウザ投稿の改変結果を保存しない。"""
+    preview = calculate(client).json["data"]
+    before = stored(app)
+    response = save(client, preview["calculation_token"], groups=[], min_people=9999)
+    assert response.status_code == 422
+    assert stored(app) == before
+    valid = save(client, preview["calculation_token"])
+    assert valid.status_code == 201
+    assert valid.json["data"]["run"]["min_people"] == 100
