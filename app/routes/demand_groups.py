@@ -70,7 +70,9 @@ def register_routing_errors(app):
         is_stock = re.match(r"^/api/v1/(?:stocks|stock-movements|stock-merges|stock-alerts|operators)(?:/|$)", path)
         is_setting = re.match(r"^/api/v1/shelters/[^/]+/(?:warehouse-settings|warehouse-setup|allocations)(?:/|$)", path)
         is_calculation = re.match(r"^/api/v1/(?:calculations|calculation-runs)(?:/|$)", path)
-        if is_stock or is_setting or is_calculation:
+        is_gis = re.match(r"^/(?:api/v1/gis|gis)(?:/|$)", path)
+        is_summary = re.match(r"^/api/v1/warehouses/[^/]+/summary(?:/|$)", path)
+        if is_stock or is_setting or is_calculation or is_gis or is_summary:
             from .stocks import error_response
             code = "METHOD_NOT_ALLOWED" if error.code == 405 else "RESOURCE_NOT_FOUND"
             response, status = error_response(code, "APIのパスとHTTPメソッドを確認してください。", error.code)
