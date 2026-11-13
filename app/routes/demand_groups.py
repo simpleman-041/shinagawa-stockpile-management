@@ -79,7 +79,7 @@ def register_routing_errors(app):
             if error.code == 405:
                 response.headers["Allow"] = ", ".join(sorted(error.valid_methods or []))
             return response, status
-        if not (is_group or is_conversion):
+        if not (is_group or is_conversion or path == "/api/v1" or path.startswith("/api/v1/")):
             return error
         code = "METHOD_NOT_ALLOWED" if error.code == 405 else "RESOURCE_NOT_FOUND"
         message = "許可されたHTTPメソッドを使用してください。" if error.code == 405 else "指定されたAPIが見つかりません。"

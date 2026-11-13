@@ -6,7 +6,7 @@ const fs = require("node:fs"), vm = require("node:vm"), path = require("node:pat
 const header = {shelter_id:"1",shelter_name:"架空避難所",target_people:100,target_days:2,base_date:"2026-11-12",calculated_at:"2026-11-12T00:00:00.000Z",formula_version:"unfire-20261101-r1",setup_state:"complete",result_state:"computed",has_unknown_expiry:true,min_people:75,min_days:1,unavailable_reason:null};
 const preview = {calculation_token:"opaque-token",header,groups:[{group_id:"1",group_name:"試験需要",calculation_unit:"食",is_divisible:false,daily_usage:"3.00",source_text:"試験出典",version_or_date:"v1",conditions:"試験専用",result_state:"computed",reference_quantity:"450.50",required_quantity:"600.00",included_quantity:"450.50",covered_quantity:"450.50",shortage_quantity:"149.50",coverage_rate:"75.1",people:75,days:1,limits_people:true,limits_days:true,has_unknown_expiry:true,unavailable_reason:null}],items:[{item_id:"1",group_id:"1",item_name:"旧品目",quantity_unit:"箱",registration_state:"closed",is_divisible:false,factor_x100:"125",source_text:"試験出典",version_or_date:"v1",conditions:"試験専用"}],warehouses:[{warehouse_id:"1",warehouse_name:"試験倉庫",allocation_mode:"dedicated"}],warehouse_links:[{warehouse_id:"1",shelter_id:"1",shelter_name:"架空避難所"}],stocks:[{stock_id:"1",item_id:"1",warehouse_id:"1",stock_quantity:"360.40",allocated_total:"0.00",selected_allocation:"0.00",included_quantity:"360.40",converted_quantity:"450.50",expiry_state:"unconfirmed",expiry_date:null,selection_reason:"dedicated",unknown_expiry_warning:true,expires_in_period:false}],issues:[]};
 
-async function harness(mode="calculate", search="?shelter_id=1") {
+async function harness(mode="calculate", search="?shelter_id=1", shelterCount=1) {
   class Element {
     constructor(tag="div") { this.tag=tag; this.children=[]; this.events={}; this.elements={}; this.value=""; this.hidden=false; this.disabled=false; }
     append(...children) { this.children.push(...children); }
@@ -25,7 +25,10 @@ async function harness(mode="calculate", search="?shelter_id=1") {
   const response=(data,status=200)=>({ok:status<400,json:async()=>structuredClone(data)});
   async function fetch(url,options) {
     calls.push({url,options}); if(offline) throw new Error("offline");
-    if(url==="/api/v1/shelters") return response({data:[{shelter_id:1,name:"架空避難所",target_people:100,target_days:2,setup_state:"complete"}]});
+    if(url.startsWith("/api/v1/shelters?")) {
+      const p=new URLSearchParams(url.split("?")[1]),start=Number(p.get("offset")),limit=Number(p.get("limit"));
+      return response({data:Array.from({length:Math.max(0,Math.min(limit,shelterCount-start))},(_,i)=>({shelter_id:String(start+i+1),name:`架空避難所${start+i+1}`,target_people:100,target_days:2,setup_state:"complete"})),page:{total:shelterCount,limit,offset:start}});
+    }
     if(url==="/api/v1/calculations") return reject ? response({error:{message:"目標条件を確認してください。"}},422) : response({data:preview});
     if(url.startsWith("/api/v1/calculations/")) return response({error:{message:"保持していません。再計算してください。"}},409);
     const saved={run:{...header,run_id:"1",saved_at:"2026-11-13T00:00:00.000Z",correction_of_run_id:null},...Object.fromEntries(["groups","items","warehouses","warehouse_links","stocks"].map(k=>[k,preview[k]])),correction_run_ids:["2"]};
@@ -40,6 +43,23 @@ async function harness(mode="calculate", search="?shelter_id=1") {
   await new Promise(setImmediate);
   return {nodes,calls,changes,setOffline:v=>offline=v,setReject:v=>reject=v,setEmpty:v=>empty=v};
 }
+
+for (const count of [0,1,50,51,401]) test(`計算・履歴の避難所選択: ${count}件全てへ到達し検索時は再取得しない`,async()=>{
+  for (const mode of ["calculate","history"]) {
+    const h=await harness(mode,count ? `?shelter_id=${count}` : "",count),n=h.nodes;
+    const options=n["calculation-shelter"].children;
+    assert.equal(options.length,count); assert.equal(new Set(options.map(o=>o.value)).size,count);
+    if(count) assert.equal(options.at(-1).value,String(count));
+    const calls=h.calls.filter(c=>c.url.startsWith("/api/v1/shelters?"));
+    assert.equal(calls.length,Math.max(1,Math.ceil(count/200)));
+    if(mode==="calculate" && count) {
+      assert.equal(n["calculation-shelter"].value,String(count));
+      await n["calculation-form"].dispatch("submit");
+      assert.equal(JSON.parse(h.calls.at(-1).options.body).shelter_id,String(count));
+    } else if(mode==="history") await n["history-form"].dispatch("submit");
+    assert.equal(h.calls.filter(c=>c.url.startsWith("/api/v1/shelters?")).length,calls.length);
+  }
+});
 
 test("目標初期値、計算結果、整数調達切上げ、根拠、明示保存と二重操作防止",async()=>{
   const h=await harness(),n=h.nodes;

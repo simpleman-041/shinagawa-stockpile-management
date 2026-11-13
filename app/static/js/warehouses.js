@@ -10,6 +10,9 @@
   const table = document.querySelector("#warehouse-table-wrap");
   const body = document.querySelector("#warehouse-table-body");
   const count = document.querySelector("#warehouse-count");
+  const previous = document.querySelector("#warehouse-previous");
+  const next = document.querySelector("#warehouse-next");
+  let offset = 0, total = 0, busy = false, filters = new URLSearchParams();
 
   function setState(state) {
     loading.hidden = state !== "loading";
@@ -40,6 +43,10 @@
     const editLink = document.createElement("a");
     editLink.href = `/warehouses/${warehouse.warehouse_id}/edit`;  editLink.textContent = "編集";
     actionCell.appendChild(editLink);
+    const detailLink = document.createElement("a");
+    detailLink.href = `/warehouses/${warehouse.warehouse_id}`;
+    detailLink.textContent = "詳細・日常基準";
+    actionCell.append(" ／ ", detailLink);
     const stockLink = document.createElement("a");
     stockLink.href = `/stocks?warehouse_id=${encodeURIComponent(warehouse.warehouse_id)}`;
     stockLink.textContent = "在庫を見る";
@@ -49,15 +56,15 @@
     return tr;
   }
 
-  async function loadWarehouses(event) {
-    if (event) event.preventDefault();
+  async function loadWarehouses(start = 0, selectedFilters = filters) {
+    if (busy) return;
+    busy = true; previous.disabled = next.disabled = true;
     setState("loading");
     body.replaceChildren();
     count.textContent = "";
 
-    const params = new URLSearchParams();
-    if (query.value) params.set("q", query.value);
-    if (coordinates.value) params.set("coordinates", coordinates.value);
+    const params = new URLSearchParams(selectedFilters);
+    params.set("limit", "50"); params.set("offset", String(start));
 
     try {
       const response = await fetch(`/api/v1/warehouses?${params.toString()}`, {
@@ -65,20 +72,31 @@
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error?.message || "倉庫一覧を取得できませんでした。");
+      filters = new URLSearchParams(selectedFilters); offset = start; total = payload.page.total;
+      count.textContent = `${total}件${payload.data.length ? ` ／ ${offset + 1}〜${offset + payload.data.length}件目` : ""}`;
 
       if (!payload.data.length) {
         setState("empty");
       } else {
         payload.data.forEach((warehouse) => body.appendChild(row(warehouse)));
-        count.textContent = `${payload.page.total}件`;
         setState("data");
       }
     } catch (reason) {
       error.textContent = reason.message || "通信に失敗しました。時間をおいて再度お試しください。";
       setState("error");
+    } finally {
+      busy = false; previous.disabled = offset === 0; next.disabled = offset + 50 >= total;
     }
   }
 
-  form.addEventListener("submit", loadWarehouses);
+  form.addEventListener("submit", event => {
+    event.preventDefault(); if (busy) return;
+    const selectedFilters = new URLSearchParams();
+    if (query.value) selectedFilters.set("q", query.value);
+    if (coordinates.value) selectedFilters.set("coordinates", coordinates.value);
+    return loadWarehouses(0, selectedFilters);
+  });
+  previous.addEventListener("click", () => loadWarehouses(Math.max(0, offset - 50)));
+  next.addEventListener("click", () => loadWarehouses(offset + 50));
   loadWarehouses();
 })();

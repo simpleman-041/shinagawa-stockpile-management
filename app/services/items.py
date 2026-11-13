@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 from app import db
+from app.services.master_values import decimal_text
 
 
 class ItemConflict(Exception):
@@ -19,9 +20,7 @@ def _item_from_row(row):
     item = dict(row)
     item["item_id"] = str(item["item_id"])
     if item["unit_volume_m3"] is not None:
-        value = format(Decimal(str(item["unit_volume_m3"])), "f")
-        integer_part, _, fraction_part = value.partition(".")
-        item["unit_volume_m3"] = f"{integer_part}.{fraction_part[:2].ljust(2, '0')}"
+        item["unit_volume_m3"] = decimal_text(item["unit_volume_m3"])
     item["is_divisible"] = bool(item["is_divisible"])
     return item
 

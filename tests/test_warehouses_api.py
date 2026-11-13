@@ -45,17 +45,17 @@ def test_get_warehouses_returns_rows_and_page(client, seeded_database):
     assert response.json == {
         "data": [
             {
-                "warehouse_id": 1,
+                "warehouse_id": "1",
                 "name": "第一倉庫",
                 "facility_type": "避難所倉庫",
                 "address": "品川区北品川1-1",
                 "latitude": 35.62,
                 "longitude": 139.74,
-                "capacity_m3": 100.0,
+                "capacity_m3": "100.00",
                 "allocation_mode": "shared",
             },
             {
-                "warehouse_id": 2,
+                "warehouse_id": "2",
                 "name": "第二倉庫",
                 "facility_type": "集中備蓄倉庫",
                 "address": "品川区南品川2-2",
@@ -65,13 +65,13 @@ def test_get_warehouses_returns_rows_and_page(client, seeded_database):
                 "allocation_mode": None,
             },
             {
-                "warehouse_id": 3,
+                "warehouse_id": "3",
                 "name": "第三倉庫",
                 "facility_type": "分散備蓄倉庫",
                 "address": "大田区東六郷3-3",
                 "latitude": 35.55,
                 "longitude": 139.72,
-                "capacity_m3": 50.0,
+                "capacity_m3": "50.00",
                 "allocation_mode": "dedicated",
             },
         ],
@@ -86,7 +86,7 @@ def test_get_warehouses_supports_search_coordinates_and_paging(client, seeded_da
 
     assert response.status_code == 200
     assert response.json["page"] == {"limit": 1, "offset": 1, "total": 2}
-    assert response.json["data"][0]["warehouse_id"] == 3
+    assert response.json["data"][0]["warehouse_id"] == "3"
 
 
 def test_get_warehouses_returns_empty_success(client, seeded_database):
@@ -108,20 +108,20 @@ def test_post_warehouse_creates_row_and_returns_location(client):
             "address": "品川区東品川1-1",
             "latitude": 35.6,
             "longitude": 139.75,
-            "capacity_m3": 120.5,
+            "capacity_m3": "120.50",
         },
     )
 
     assert response.status_code == 201
     assert response.headers["Location"].endswith("/api/v1/warehouses/1")
     assert response.json["data"] == {
-        "warehouse_id": 1,
+        "warehouse_id": "1",
         "name": "新倉庫",
         "facility_type": "避難所倉庫",
         "address": "品川区東品川1-1",
         "latitude": 35.6,
         "longitude": 139.75,
-        "capacity_m3": 120.5,
+        "capacity_m3": "120.50",
         "allocation_mode": None,
     }
 
@@ -138,7 +138,7 @@ def test_post_warehouse_rejects_one_coordinate(client):
     )
 
     assert response.status_code == 422
-    assert response.json["error"]["fields"][0]["code"] == "COORDINATE_PAIR_REQUIRED"
+    assert response.json["error"]["fields"][0]["code"] == "VALIDATION_ERROR"
 
 
 def test_patch_warehouse_updates_row(client, seeded_database):
@@ -160,7 +160,7 @@ def test_patch_warehouse_returns_not_found(client, seeded_database):
     )
 
     assert response.status_code == 404
-    assert response.json["error"]["code"] == "NOT_FOUND"
+    assert response.json["error"]["code"] == "RESOURCE_NOT_FOUND"
 
 
 def test_thresholds_distinguish_unset_from_zero(client, seeded_database):
@@ -178,18 +178,18 @@ def test_thresholds_distinguish_unset_from_zero(client, seeded_database):
 
     before = client.get("/api/v1/warehouses/1/thresholds")
     assert before.status_code == 200
-    assert before.json == {"data": []}
+    assert before.json == {"data": [], "page": {"limit": 50, "offset": 0, "total": 0}}
 
     created = client.put(
         "/api/v1/warehouses/1/thresholds/1",
-        json={"minimum_quantity": 0},
+        json={"minimum_quantity": "0.00"},
     )
     assert created.status_code == 201
-    assert created.json["data"]["minimum_quantity"] == 0
+    assert created.json["data"]["minimum_quantity"] == "0.00"
 
     after = client.get("/api/v1/warehouses/1/thresholds")
     assert after.json["data"] == [
-        {"warehouse_id": 1, "item_id": 1, "minimum_quantity": 0}
+        {"warehouse_id": "1", "item_id": "1", "minimum_quantity": "0.00"}
     ]
 
 
@@ -211,20 +211,20 @@ def test_threshold_update_and_validation(client, seeded_database):
             )
 
     first = client.put(
-        "/api/v1/warehouses/1/thresholds/2", json={"minimum_quantity": 1.25}
+        "/api/v1/warehouses/1/thresholds/2", json={"minimum_quantity": "1.25"}
     )
     assert first.status_code == 201
     updated = client.put(
-        "/api/v1/warehouses/1/thresholds/2", json={"minimum_quantity": 2.5}
+        "/api/v1/warehouses/1/thresholds/2", json={"minimum_quantity": "2.5"}
     )
     assert updated.status_code == 200
-    assert updated.json["data"]["minimum_quantity"] == 2.5
+    assert updated.json["data"]["minimum_quantity"] == "2.50"
 
     rejected = client.put(
-        "/api/v1/warehouses/1/thresholds/1", json={"minimum_quantity": 1.5}
+        "/api/v1/warehouses/1/thresholds/1", json={"minimum_quantity": "1.5"}
     )
     assert rejected.status_code == 422
-    assert rejected.json["error"]["fields"][0]["code"] == "UNIT_PRECISION"
+    assert rejected.json["error"]["fields"][0]["code"] == "INTEGER_REQUIRED"
 
 
 @pytest.mark.parametrize(

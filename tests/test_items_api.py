@@ -18,6 +18,32 @@ def client(app):
     return app.test_client()
 
 
+@pytest.mark.parametrize("value", ["9007199254740993.01", "9007199254740993", "12345678901234567890.12"])
+def test_volume_rejects_real_round_trip_loss(client, app, value):
+    response = client.post("/api/v1/items", json={
+        "name": "precision", "category": "test", "quantity_unit": "L",
+        "is_divisible": True, "near_expiry_days": 1, "unit_volume_m3": value,
+    })
+    assert response.status_code == 422
+    with app.app_context():
+        assert db.get_db().execute("SELECT count(*) FROM items").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("value, expected", [("0", "0.00"), ("1.23", "1.23"), ("9007199254740992", "9007199254740992.00")])
+def test_volume_round_trip_is_exact(client, value, expected):
+    response = client.post("/api/v1/items", json={
+        "name": "precision", "category": "test", "quantity_unit": "L",
+        "is_divisible": True, "near_expiry_days": 1, "unit_volume_m3": value,
+    })
+    assert response.status_code == 201
+    item_id = response.json["data"]["item_id"]
+    for _ in range(3):
+        assert client.get(f"/api/v1/items/{item_id}").json["data"]["unit_volume_m3"] == expected
+        updated = client.patch(f"/api/v1/items/{item_id}", json={"unit_volume_m3": expected})
+        assert updated.status_code == 200
+        assert updated.json["data"]["unit_volume_m3"] == expected
+
+
 @pytest.fixture
 def seeded_items(app):
     with app.app_context():
