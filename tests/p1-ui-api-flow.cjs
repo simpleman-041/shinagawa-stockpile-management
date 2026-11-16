@@ -1,6 +1,7 @@
 /* DOM代替で実JSを動かし、HTTPは実Flask・正本DDLの隔離DBへ接続する。 */
 const assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
 const {harness} = require("./helpers/calculation-conditions-harness.cjs");
+const {Element} = require("./helpers/master-ui-harness.cjs");
 const base = process.argv[2];
 if (!base || !/^http:\/\/127\.0\.0\.1:\d+$/.test(base)) throw new Error("専用テストサーバーのURLを指定してください。");
 const calls = [];
@@ -15,7 +16,7 @@ async function api(url, method = "GET", values) {
 
 async function existingForm(url, filename) {
   const html = await (await fetch(base + url)).text(), nodes = {};
-  for (const match of html.matchAll(/\bid="([^"]+)"/g)) nodes[match[1]] = {hidden: true, textContent: ""};
+  for (const match of html.matchAll(/\bid="([^"]+)"/g)) nodes[match[1]] = Object.assign(new Element(), {hidden: true, textContent: ""});
   const forms = [];
   for (const match of html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/g)) {
     const attrs = match[1], id = attrs.match(/id="([^"]+)"/)[1], form = nodes[id]; forms.push(form);
@@ -34,7 +35,7 @@ async function existingForm(url, filename) {
     get(name) { return this.values.get(name) ?? null; }
   }
   const location = {href: "unchanged"};
-  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../app/static/js", filename), "utf8"), {document: {querySelector: selector => nodes[selector.slice(1)] || null}, FormData, fetch: transport, window: {location}});
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../app/static/js", filename), "utf8"), {document: {querySelector: selector => nodes[selector.slice(1)] || null}, FormData, fetch: transport, window: {location}, AbortController, setTimeout, clearTimeout});
   return {nodes, forms, location};
 }
 

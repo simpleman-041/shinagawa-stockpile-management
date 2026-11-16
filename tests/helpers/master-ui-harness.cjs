@@ -6,6 +6,7 @@ class Element {
   replaceChildren(...children) { this.children = children; }
   setAttribute(key, value) { this.attributes[key] = value; }
   removeAttribute(key) { delete this.attributes[key]; }
+  focus() { this.focused = true; }
   addEventListener(type, fn) { (this.events[type] ??= []).push(fn); }
   querySelector() { return this.submitButton ??= new Element("button"); }
   async dispatch(type) { for (const fn of this.events[type] || []) await fn({preventDefault() {}, currentTarget: this}); await settle(); }
