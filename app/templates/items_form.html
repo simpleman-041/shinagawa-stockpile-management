@@ -53,10 +53,31 @@
             <input name="near_expiry_days" type="number" min="1" max="3650" step="1" required value="{{ item.near_expiry_days if mode == 'edit' else '' }}">
           </label>
           <div>
-            <button type="submit">{% if mode == "edit" %}保存{% else %}登録{% endif %}</button>
+            <button id="item-form-submit" type="submit">{% if mode == "edit" %}保存{% else %}登録{% endif %}</button>
             <a href="{{ url_for('pages.items_page') }}">キャンセル</a>
           </div>
+          <p id="item-form-status" class="status" role="status" hidden></p>
           <p id="item-form-error" class="status error" role="alert" hidden></p>
+          <section id="item-form-recovery" class="panel" aria-labelledby="item-form-recovery-heading" hidden>
+            <h2 id="item-form-recovery-heading">保存結果を確認してください</h2>
+            <p>入力は保持しています。前の保存が処理中の可能性もあるため、時間をおいて登録内容を確認してください。保存できている場合は再操作は不要です。</p>
+            {% if mode == "edit" %}
+              <button id="item-form-recheck" type="button">現在の保存内容を確認</button>
+              <dl id="item-form-current" hidden>
+                <dt>品目名</dt><dd id="item-current-name"></dd>
+                <dt>分類</dt><dd id="item-current-category"></dd>
+                <dt>管理単位</dt><dd id="item-current-quantity_unit"></dd>
+                <dt>単位容積（m³）</dt><dd id="item-current-unit_volume_m3"></dd>
+                <dt>分割可否</dt><dd id="item-current-is_divisible"></dd>
+                <dt>期限接近日数</dt><dd id="item-current-near_expiry_days"></dd>
+              </dl>
+              <p>取得した内容は確認時点の値です。入力と照合し、再保存する場合は他の変更を上書きしないか確認してください。</p>
+            {% else %}
+              <a href="{{ url_for('pages.items_page') }}" target="_blank" rel="noopener">一覧を別タブで確認</a>
+              <p>品目名で検索し、編集画面で分類・管理単位なども確認してください。同名品目があっても、今回の登録成功とは断定できません。再登録すると重複する可能性があります。</p>
+            {% endif %}
+            <button id="item-form-resume" type="button" {% if mode == "edit" %}disabled{% endif %}>確認後、入力を修正して再操作する</button>
+          </section>
         </form>
       </section>
     </main>
