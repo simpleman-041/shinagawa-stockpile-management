@@ -42,6 +42,7 @@ for (const [key, plural] of [["warehouse", "warehouses"], ["item", "items"], ["s
     h.nodes[`${key}-query`].value = "失敗条件"; fail = true;
     await h.nodes[`${key}-search-form`].dispatch("submit");
     assert.equal(h.nodes[`${key}-error`].hidden, false);
+    assert.equal(h.nodes[`${key}-count`].textContent, "");
     fail = false; await h.nodes[`${key}-next`].dispatch("click");
     assert.equal(new URL(h.calls.at(-1).url, "http://test").searchParams.has("q"), false);
   });
