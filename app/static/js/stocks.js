@@ -21,9 +21,34 @@
   let movementFilters = new URLSearchParams();
   const historyOffsets = { state: 0, expiry: 0 };
   function showError(error) {
-    $("error").textContent = error.message;
-    $("error").hidden = false;
-    $("error").scrollIntoView({ block: "nearest" });
+    const container = $("error");
+    container.replaceChildren();
+    container.textContent = error.message;
+    const candidates = error.details?.candidate_stock_ids;
+    if (Array.isArray(candidates) && candidates.length) {
+      const caption = document.createElement("span");
+      caption.textContent = " 候補在庫: ";
+      container.append(caption);
+      const validIds = candidates.filter((id) => /^[1-9][0-9]*$/.test(id));
+      validIds.forEach((id, index) => {
+        if (index) {
+          const separator = document.createElement("span");
+          separator.textContent = "、";
+          container.append(separator);
+        }
+        const link = document.createElement("a");
+        link.href = `/stocks/${id}`;
+        link.textContent = `在庫ID ${id}の詳細`;
+        container.append(link);
+      });
+      if (validIds.length) {
+        const guidance = document.createElement("span");
+        guidance.textContent = "を開き、対象の在庫に入庫するか、条件を確認して統合してください。";
+        container.append(guidance);
+      }
+    }
+    container.hidden = false;
+    container.scrollIntoView({ block: "nearest" });
     if ($("cancellation-dialog")?.open) {
       $("cancellation-error").textContent = error.message;
       $("cancellation-error").hidden = false;
@@ -40,7 +65,9 @@
     try { result = await response.json(); } catch { throw new Error("応答を読み取れません。更新結果を確認してください。"); }
     if (!response.ok) {
       const fields = (result.error?.fields || []).map((field) => `${field.path} ${field.message}`).join(" / ");
-      throw new Error(`${result.error?.message || "処理に失敗しました。"} ${fields}`);
+      const error = new Error(`${result.error?.message || "処理に失敗しました。"} ${fields}`);
+      error.details = result.error?.details || {};
+      throw error;
     }
     return result;
   }
