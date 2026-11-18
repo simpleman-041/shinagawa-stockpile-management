@@ -4,7 +4,7 @@
   const node = (tag, text) => { const n = document.createElement(tag); n.textContent = text; return n; };
   const link = (url, text) => { const a = node("a", text); a.href = url; return a; };
   const colors = ["#EFF3FF", "#BDD7E7", "#6BAED6", "#3182BD", "#08519C"];
-  let data = {located: [], unlocated: []}, regions = null, warehousesVersion = 0, populationVersion = 0, selectionVersion = 0;
+  let data = {located: [], unlocated: []}, regions = null, warehousesLoaded = false, warehousesVersion = 0, populationVersion = 0, selectionVersion = 0;
   let searchVersion = 0, matchingWarehouseIds = null;
   function error(id, text = "") { $(id).textContent = text; $(id).hidden = !text; }
   function csv(text) {
@@ -76,7 +76,10 @@
       content.append(node("p", c.state === "computed" ? `容量 ${c.used_volume_m3} / ${c.capacity_m3} m³（${c.usage_rate}%）・${{available:"空きあり",full:"満杯",over:"容量超過"}[c.level]}` : `容量計算不可：${c.issues.map(i => i.message).join(" ")}`));
       content.append(node("p", `在庫は架空サンプル。期限判定日 ${result.base_date}（日本時間）。数量は品目の管理単位です。`));
       if (!result.items.length) content.append(node("p", "有効在庫・日常管理基準は未登録です。"));
-      for (const item of result.items) content.append(node("p", `${item.item_name}：現物 ${item.physical_quantity} ${item.quantity_unit} ／ 割当済 ${item.allocated_total} ／ 未割当 ${item.unallocated_quantity}\n期限切れ ${item.expired_quantity} ／ 未確認 ${item.unconfirmed_quantity}${item.below_minimum ? " ／ 日常基準未満" : ""}`));
+      for (const item of result.items) {
+        content.append(node("p", `${item.item_name}：現物 ${item.physical_quantity} ${item.quantity_unit} ／ 割当済 ${item.allocated_total} ／ 未割当 ${item.unallocated_quantity}`));
+        content.append(node("p", `期限接近（期限内数量の内数） ${item.near_expiry_quantity} ${item.quantity_unit} ／ 期限切れ ${item.expired_quantity} ${item.quantity_unit} ／ 未確認 ${item.unconfirmed_quantity} ${item.quantity_unit}${item.below_minimum ? " ／ 日常基準未満" : ""}`));
+      }
       content.append(link(`/warehouses/${warehouse.warehouse_id}`, "倉庫詳細"), node("span", " ／ "), link(`/stocks?warehouse_id=${warehouse.warehouse_id}`, "在庫を見る"));
     } catch (reason) { if (version === selectionVersion) content.append(node("p", `概要の取得に失敗しました。${reason.message}`)); }
   }
@@ -127,8 +130,8 @@
   async function loadWarehouses() {
     const version = ++warehousesVersion;
     error("warehouse-error"); $("warehouse-status").textContent = "倉庫を読み込み中…";
-    try { const next = await api("/api/v1/gis/warehouses"); if (version !== warehousesVersion) return; data = next; await searchWarehouses(); }
-    catch (reason) { if (version === warehousesVersion) { error("warehouse-error", `倉庫取得失敗：${reason.message} 再取得で確認してください。`); $("warehouse-status").textContent = "取得できた前回の倉庫表示を保持しています。"; } }
+    try { const next = await api("/api/v1/gis/warehouses"); if (version !== warehousesVersion) return; data = next; warehousesLoaded = true; await searchWarehouses(); }
+    catch (reason) { if (version === warehousesVersion) { error("warehouse-error", `倉庫取得失敗：${reason.message} 再取得で確認してください。`); $("warehouse-status").textContent = warehousesLoaded ? "前回取得した倉庫表示を保持しています。" : "倉庫一覧を表示できません。再取得してください。"; } }
   }
   async function verified(url, hash) {
     const response = await fetch(url);
