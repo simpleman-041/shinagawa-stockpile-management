@@ -70,6 +70,7 @@
     empty.hidden = true;
     tableWrap.hidden = true;
     error.hidden = true;
+    count.textContent = "";
     try {
       const response = await fetch(`/api/v1/shelters?${params.toString()}`);
       const result = await response.json();

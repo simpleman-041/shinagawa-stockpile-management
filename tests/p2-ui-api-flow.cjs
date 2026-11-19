@@ -5,16 +5,30 @@ const {harness: masters} = require("./helpers/master-ui-harness.cjs");
 const base = process.argv[2];
 if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(base || "")) throw Error("専用テストサーバーURLが必要です。");
 const calls = [];
-async function transport(url, options) { calls.push({url, method: options?.method || "GET"}); return fetch(base + url, options); }
+const listResponses = [];
+async function transport(url, options) {
+  calls.push({url, method: options?.method || "GET"});
+  const response = await fetch(base + url, options);
+  if (/^\/api\/v1\/(warehouses|items|shelters)\?/.test(url)) {
+    let payload = null;
+    try { payload = await response.clone().json(); } catch {}
+    listResponses.push({url, status: response.status, fetched: payload?.data?.length ?? 0, total: payload?.page?.total ?? null});
+  }
+  return response;
+}
 (async () => {
   for (const [key, plural] of [["warehouse", "warehouses"], ["item", "items"], ["shelter", "shelters"]]) {
+    const responseStart = listResponses.length;
     const h = await masters(key, transport), n = h.nodes, names = [];
     do {
       names.push(...n[`${key}-table-body`].children.map(row => row.children[0].textContent));
       if (n[`${key}-next`].disabled) break;
       await n[`${key}-next`].dispatch("click");
     } while (true);
-    assert.equal(names.length, 206); assert.equal(new Set(names).size, 206);
+    const responses = listResponses.slice(responseStart);
+    const diagnostic = `${plural}: API応答=${JSON.stringify(responses)}, 描画行数=${names.length}`;
+    process.stdout.write(`${diagnostic}\n`);
+    assert.equal(names.length, 206, diagnostic); assert.equal(new Set(names).size, 206, diagnostic);
     assert.match(n[`${key}-count`].textContent, /206件.*201〜206/);
     assert.ok(n[`${key}-table-body`].children[0].children.at(-1).children.some(a => a.href === `/${plural}/201/edit`));
   }

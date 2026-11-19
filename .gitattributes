@@ -1,0 +1,3 @@
+# GIS files are served and verified by their exact SHA-256 bytes.
+data/gis/**/*.geojson -text
+data/gis/**/*.csv -text

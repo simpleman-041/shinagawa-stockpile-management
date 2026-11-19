@@ -24,6 +24,7 @@ async function harness({populationFailure=false, warehouseFailure=false}={}) {
   const csv="area_code,population,population_date\n001,10,2020-10-01\n";
   const hash=s=>createHash("sha256").update(s).digest("hex");
   const manifest={dataset_id:"test",population_date:"2020-10-01",boundary_version:"試験版",sources:[{url:"https://example.com/source",usage_terms:"https://example.com/terms"}],area_definition:"試験",sha256:{areas_geojson:hash(geo),population_csv:hash(csv)}};
+  const summaryItem={item_id:"1",item_name:"架空米",quantity_unit:"箱",physical_quantity:"12.00",allocated_total:"3.00",unallocated_quantity:"9.00",dated_usable_quantity:"8.00",no_expiry_quantity:"0.00",near_expiry_quantity:"2.00",expired_quantity:"1.00",unconfirmed_quantity:"3.00",minimum_quantity:"10.00",daily_usable_quantity:"8.00",below_minimum:true};
   const calls=[];
   const response=(value,status=200)=>({ok:status===200,json:async()=>structuredClone(value),arrayBuffer:async()=>new TextEncoder().encode(value).buffer});
   async function fetch(url) {
@@ -37,14 +38,14 @@ async function harness({populationFailure=false, warehouseFailure=false}={}) {
     if(url==="/areas")return response(geo);
     if(url==="/population")return response(csv);
     if(url.startsWith("/api/v1/stocks?"))return response({data:[{stock:{warehouse_id:"1"},item_name:"架空米",location:"別の場所"}],page:{total:1}});
-    if(url==="/api/v1/warehouses/1/summary")return response({data:{warehouse:{name:"試験倉庫%",address:"試験住所",facility_type:"試験"},base_date:"2026-11-13",items:[],capacity:{state:"unavailable",issues:[{message:"容積未設定"}]}}});
+    if(url==="/api/v1/warehouses/1/summary")return response({data:{warehouse:{name:"試験倉庫%",address:"試験住所",facility_type:"試験"},base_date:"2026-11-13",items:[summaryItem],capacity:{state:"unavailable",issues:[{message:"容積未設定"}]}}});
     throw Error(url);
   }
   const context={document:{getElementById:id=>nodes[id],createElement:()=>new Element()},L,fetch,crypto:webcrypto,TextDecoder,URLSearchParams,console};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../app/static/js/map.js"),"utf8"),context);
   async function settle(){for(let i=0;i<8;i++)await new Promise(setImmediate);}
   await settle();
-  return {nodes,map,pins,getRegions:()=>regions,tiles,calls,helpers:context.UnfireGIS,setPopFailure:v=>popFail=v,settle};
+  return {nodes,map,pins,getRegions:()=>regions,tiles,calls,helpers:context.UnfireGIS,setPopFailure:v=>popFail=v,setWarehouseFailure:v=>warehouseFail=v,settle};
 }
 
 test("人口表示のON/OFFで倉庫ピンを維持し、座標不明をピンにしない",async()=>{
@@ -70,7 +71,14 @@ test("人口取得失敗でも倉庫ピンを残し、再取得できる",async(
 test("倉庫失敗とタイル失敗を分けて案内し人口レイヤーを維持",async()=>{
   const h=await harness({warehouseFailure:true});await h.settle();
   assert.match(h.nodes["warehouse-error"].textContent,/倉庫取得失敗/);
+  assert.match(h.nodes["warehouse-status"].textContent,/倉庫一覧を表示できません/);
+  assert.doesNotMatch(h.nodes["warehouse-status"].textContent,/前回取得した/);
   assert.ok(h.map.layers.has(h.getRegions()));
+  h.setWarehouseFailure(false);await h.nodes["map-refresh"].dispatch("click");await h.settle();
+  assert.equal(h.pins.children.length,1);
+  h.setWarehouseFailure(true);await h.nodes["map-refresh"].dispatch("click");await h.settle();
+  assert.equal(h.pins.children.length,1);
+  assert.match(h.nodes["warehouse-status"].textContent,/前回取得した倉庫表示を保持/);
   h.tiles.events.tileerror();assert.match(h.nodes["tile-error"].textContent,/一覧は引き続き/);
 });
 
@@ -84,6 +92,14 @@ test("ピンと区域の選択で横概要を更新し、名称住所をリテ�
   assert.match(h.nodes["map-info"].children[1].textContent,/10人/);
   h.nodes["map-query"].value="%";await h.nodes["map-search"].dispatch("submit");assert.equal(h.pins.children.length,1);
   h.nodes["map-query"].value="存在しない";await h.nodes["map-search"].dispatch("submit");assert.equal(h.pins.children.length,0);
+});
+
+test("倉庫概要で品目別の期限接近数量と期限・基準状態を表示",async()=>{
+  const h=await harness();await h.settle();
+  h.pins.children[0].events.click();await h.settle();
+  const text=h.nodes["map-info"].children.map(n=>n.textContent||"").join(" ");
+  assert.match(text,/架空米：現物 12\.00 箱 ／ 割当済 3\.00 ／ 未割当 9\.00/);
+  assert.match(text,/期限接近（期限内数量の内数） 2\.00 箱 ／ 期限切れ 1\.00 箱 ／ 未確認 3\.00 箱 ／ 日常基準未満/);
 });
 
 test("人口コード先頭0と欠損、未丸め密度で5等幅・境界・最上位を判定",async()=>{

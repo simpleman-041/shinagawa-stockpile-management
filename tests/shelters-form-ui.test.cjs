@@ -5,12 +5,17 @@ const fs = require("node:fs"), vm = require("node:vm"), path = require("node:pat
 
 function harness(mode = "edit", hasTargets = true) {
   class Element {
-    constructor() { this.events = {}; this.elements = {}; this.value = ""; this.hidden = true; this.disabled = false; this.dataset = {}; }
+    constructor() { this.events = {}; this.elements = {}; this.value = ""; this.hidden = true; this.disabled = false; this.dataset = {}; this.attributes = {}; }
     addEventListener(type, fn) { this.events[type] = fn; }
+    setAttribute(name, value) { this.attributes[name] = value; }
+    removeAttribute(name) { delete this.attributes[name]; }
     querySelectorAll() { return Object.values(this.elements); }
     async submit() { await this.events.submit({preventDefault() {}}); }
   }
-  const ids = ["shelter-form", "shelter-form-error", "shelter-form-success", "shelter-targets-form", "shelter-targets-error", "shelter-targets-success"];
+  const ids = ["shelter-form", "shelter-form-error", "shelter-form-success", "shelter-targets-form", "shelter-targets-error", "shelter-targets-success",
+    ...["name", "address", "target_people", "target_days"].flatMap(name => [
+      `shelter-form-field-error-${name}`, `shelter-targets-form-field-error-${name}`,
+    ])];
   const nodes = Object.fromEntries(ids.map(id => [id, new Element()]));
   const form = nodes["shelter-form"], targets = nodes["shelter-targets-form"];
   form.dataset = {mode, shelterId: "1"}; targets.dataset.shelterId = "1";
@@ -20,20 +25,21 @@ function harness(mode = "edit", hasTargets = true) {
   field(targetForm, "target_people", hasTargets ? "100" : ""); field(targetForm, "target_days", hasTargets ? "2" : "");
   if (mode !== "edit") delete nodes["shelter-targets-form"];
   const calls = [], location = {href: "unchanged"};
-  let failing = null, offline = false, brokenJSON = false;
+  let failing = null, offline = false, brokenJSON = false, failureFields = [];
   const fetch = async (url, options) => {
     calls.push({url, method: options.method, body: JSON.parse(options.body)});
     if (offline) throw new Error("offline");
     return {ok: options.method !== failing, json: async () => {
       if (brokenJSON) throw new Error("invalid JSON");
-      return options.method === failing ? {error: {message: "今回の保存は失敗しました。"}} : {data: {}};
+      return options.method === failing ? {error: {message: "今回の保存は失敗しました。", fields: failureFields}} : {data: {}};
     }};
   };
   class FormData { constructor(form) { this.form = form; } get(name) { return this.form.elements[name]?.value ?? null; } }
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../app/static/js/shelters-form.js"), "utf8"), {
     document: {querySelector: selector => nodes[selector.slice(1)] || null}, FormData, fetch, window: {location},
   });
-  return {nodes, form, targets, calls, location, setFailure: value => failing = value, setOffline: value => offline = value, setBrokenJSON: value => brokenJSON = value};
+  return {nodes, form, targets, calls, location, setFailure: value => failing = value, setOffline: value => offline = value,
+    setBrokenJSON: value => brokenJSON = value, setFailureFields: value => failureFields = value};
 }
 
 for (const hasTargets of [false, true]) test(`正式目標${hasTargets ? "あり" : "なし"}で通常保存と目標保存を分離する`, async () => {
@@ -84,4 +90,19 @@ test("新規登録は未設定を省略し、不正な目標と読めない応�
   await edit.targets.submit();
   assert.equal(edit.nodes["shelter-targets-success"].hidden, true);
   assert.match(edit.nodes["shelter-targets-error"].textContent, /保存結果を確認できません/);
+});
+
+test("API項目別エラーを対応する入力欄に示し、再送時に解除する", async () => {
+  const h = harness();
+  h.setFailure("PATCH");
+  h.setFailureFields([{path: "/name", message: "名称を確認してください。"}]);
+  await h.form.submit();
+  const fieldError = h.nodes["shelter-form-field-error-name"];
+  assert.equal(fieldError.hidden, false);
+  assert.equal(fieldError.textContent, "名称を確認してください。");
+  assert.equal(h.form.elements.name.attributes["aria-invalid"], "true");
+  h.setFailure(null);
+  await h.form.submit();
+  assert.equal(fieldError.hidden, true);
+  assert.equal(h.form.elements.name.attributes["aria-invalid"], undefined);
 });
