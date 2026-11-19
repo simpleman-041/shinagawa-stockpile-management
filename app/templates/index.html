@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ホーム | UnFire</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet-1.9.4/leaflet.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+</head>
+<body>
+  <main class="home-shell">
+    <header class="home-header">
+      <div>
+        <p class="eyebrow">UnFire</p>
+        <h1>ホーム</h1>
+        <p class="lead">倉庫と備蓄品の現在状況を確認できます。</p>
+      </div>
+      <nav aria-label="メインメニュー">
+        <a href="/warehouses">倉庫一覧</a>
+        <a href="/stocks">在庫管理</a>
+        <a href="/map">地図・検索</a>
+      </nav>
+    </header>
+
+    <p id="home-loading" class="status" role="status">ホーム情報を読み込み中…</p>
+    <p id="home-error" class="status error" role="alert" hidden></p>
+
+    <div class="home-grid">
+      <section class="home-card alerts-card" aria-labelledby="alerts-heading">
+        <div class="card-heading">
+          <h2 id="alerts-heading">要対応事項</h2>
+          <a class="card-link" href="/stocks">すべて見る <span aria-hidden="true">›</span></a>
+        </div>
+        <p class="card-description">期限が近い品目や、基準を下回っている在庫です。</p>
+        <div id="alert-list" class="alert-list" aria-live="polite"></div>
+        <p id="alert-empty" class="empty-state" hidden>現在、要対応の在庫はありません。</p>
+      </section>
+
+      <section class="home-card map-card" aria-labelledby="map-heading">
+        <div class="card-heading">
+          <h2 id="map-heading">倉庫の位置と使用状況</h2>
+          <a class="card-link" href="/map">地図を拡大 <span aria-hidden="true">›</span></a>
+        </div>
+        <div id="home-map" class="home-map" aria-label="倉庫の位置と使用状況を示す地図"></div>
+        <p id="map-caption" class="map-caption">倉庫の位置を読み込み中…</p>
+      </section>
+    </div>
+
+    <section class="home-card warehouse-card" aria-labelledby="warehouse-heading">
+      <div class="card-heading">
+        <h2 id="warehouse-heading">倉庫の状況</h2>
+        <a class="card-link" href="/warehouses">一覧を見る <span aria-hidden="true">›</span></a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">倉庫の容量と使用状況</caption>
+          <thead>
+            <tr>
+              <th scope="col">倉庫名</th>
+              <th scope="col">保管容量</th>
+              <th scope="col">使用量</th>
+              <th scope="col">使用率</th>
+              <th scope="col">使用状況</th>
+              <th scope="col">状態</th>
+            </tr>
+          </thead>
+          <tbody id="warehouse-table-body"></tbody>
+        </table>
+      </div>
+      <p id="warehouse-empty" class="empty-state" hidden>倉庫が登録されていません。</p>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='vendor/leaflet-1.9.4/leaflet.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/home.js') }}" defer></script>
+</body>
+</html>

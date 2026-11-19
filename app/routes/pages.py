@@ -11,6 +11,11 @@ from app.services.warehouses import get_warehouse
 pages_bp = Blueprint("pages", __name__)
 
 
+@pages_bp.get("/")
+def index_page():
+    return render_template("index.html")
+
+
 @pages_bp.get("/map")
 def map_page():
     return render_template("map.html")
