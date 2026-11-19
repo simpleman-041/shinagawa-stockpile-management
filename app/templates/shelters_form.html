@@ -16,23 +16,19 @@
       <section class="panel">
         <h2>{{ '名称・住所' if mode == 'edit' else '避難所情報' }}</h2>
         <form id="shelter-form" data-mode="{{ mode }}" {% if mode == "edit" %}data-shelter-id="{{ shelter.shelter_id }}"{% endif %}>
-          <label>
-            避難所名
-            <input name="name" type="text" required value="{{ shelter.name if mode == 'edit' else '' }}">
-          </label>
-          <label>
-            住所
-            <input name="address" type="text" required value="{{ shelter.address if mode == 'edit' else '' }}">
-          </label>
+          <label for="shelter-name">避難所名</label>
+          <input id="shelter-name" name="name" type="text" required value="{{ shelter.name if mode == 'edit' else '' }}" aria-describedby="shelter-form-field-error-name">
+          <p id="shelter-form-field-error-name" class="status error" hidden></p>
+          <label for="shelter-address">住所</label>
+          <input id="shelter-address" name="address" type="text" required value="{{ shelter.address if mode == 'edit' else '' }}" aria-describedby="shelter-form-field-error-address">
+          <p id="shelter-form-field-error-address" class="status error" hidden></p>
           {% if mode != "edit" %}
-          <label>
-            目標人数（未設定可）
-            <input name="target_people" type="number" min="1" max="9007199254740991" step="1">
-          </label>
-          <label>
-            目標日数（未設定可）
-            <input name="target_days" type="number" min="1" max="9007199254740991" step="1">
-          </label>
+          <label for="shelter-target-people">目標人数（未設定可）</label>
+          <input id="shelter-target-people" name="target_people" type="number" min="1" max="9007199254740991" step="1" aria-describedby="shelter-form-field-error-target_people">
+          <p id="shelter-form-field-error-target_people" class="status error" hidden></p>
+          <label for="shelter-target-days">目標日数（未設定可）</label>
+          <input id="shelter-target-days" name="target_days" type="number" min="1" max="9007199254740991" step="1" aria-describedby="shelter-form-field-error-target_days">
+          <p id="shelter-form-field-error-target_days" class="status error" hidden></p>
           {% endif %}
           <div>
             <button type="submit">{% if mode == "edit" %}名称・住所を保存{% else %}登録{% endif %}</button>
@@ -47,12 +43,12 @@
         <h2>正式目標</h2>
         <p>名称・住所とは別に保存します。備蓄計算の初期値になります。</p>
         <form id="shelter-targets-form" data-shelter-id="{{ shelter.shelter_id }}">
-          <label>目標人数
-            <input name="target_people" type="number" min="1" max="9007199254740991" step="1" required value="{{ shelter.target_people if shelter.target_people is not none else '' }}">
-          </label>
-          <label>目標日数
-            <input name="target_days" type="number" min="1" max="9007199254740991" step="1" required value="{{ shelter.target_days if shelter.target_days is not none else '' }}">
-          </label>
+          <label for="shelter-formal-target-people">目標人数</label>
+          <input id="shelter-formal-target-people" name="target_people" type="number" min="1" max="9007199254740991" step="1" required value="{{ shelter.target_people if shelter.target_people is not none else '' }}" aria-describedby="shelter-targets-form-field-error-target_people">
+          <p id="shelter-targets-form-field-error-target_people" class="status error" hidden></p>
+          <label for="shelter-formal-target-days">目標日数</label>
+          <input id="shelter-formal-target-days" name="target_days" type="number" min="1" max="9007199254740991" step="1" required value="{{ shelter.target_days if shelter.target_days is not none else '' }}" aria-describedby="shelter-targets-form-field-error-target_days">
+          <p id="shelter-targets-form-field-error-target_days" class="status error" hidden></p>
           <button type="submit">正式目標を保存</button>
           <p id="shelter-targets-error" class="status error" role="alert" hidden></p>
           <p id="shelter-targets-success" class="status" role="status" hidden></p>

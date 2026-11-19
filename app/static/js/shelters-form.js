@@ -13,7 +13,11 @@
     let result;
     try { result = await response.json(); }
     catch { throw new Error("保存結果を確認できませんでした。現在の登録内容を確認してから再操作してください。"); }
-    if (!response.ok) throw new Error(result.error?.message || "保存に失敗しました。");
+    if (!response.ok) {
+      const error = new Error(result.error?.message || "保存に失敗しました。");
+      error.fields = result.error?.fields || [];
+      throw error;
+    }
     return result.data;
   }
 
@@ -30,9 +34,19 @@
     if (!form) return;
     const error = document.querySelector(`#${errorId}`), success = document.querySelector(`#${successId}`);
     let busy = false;
+    function clearFieldErrors() {
+      for (const name of ["name", "address", "target_people", "target_days"]) {
+        const control = form.elements[name];
+        if (!control || typeof control.removeAttribute !== "function") continue;
+        control.removeAttribute("aria-invalid");
+        const message = document.querySelector(`#${formId}-field-error-${name}`);
+        if (message) { message.textContent = ""; message.hidden = true; }
+      }
+    }
     form.addEventListener("submit", async event => {
       event.preventDefault();
       if (busy) return;
+      clearFieldErrors();
       const values = new FormData(form);
       const controls = [...form.querySelectorAll("button, input, select")];
       const disabled = controls.map(control => control.disabled);
@@ -43,6 +57,15 @@
         if (message) { success.textContent = message; success.hidden = false; }
       } catch (reason) {
         error.textContent = reason.message; error.hidden = false;
+        for (const field of reason.fields || []) {
+          const match = /^\/([a-z_]+)$/.exec(field.path || "");
+          const control = match && form.elements[match[1]];
+          const message = match && document.querySelector(`#${formId}-field-error-${match[1]}`);
+          if (!control || !message) continue;
+          message.textContent = field.message || "入力内容を確認してください。";
+          message.hidden = false;
+          control.setAttribute("aria-invalid", "true");
+        }
       } finally {
         controls.forEach((control, index) => { control.disabled = disabled[index]; });
         busy = false;
