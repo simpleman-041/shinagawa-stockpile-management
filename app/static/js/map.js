@@ -66,7 +66,7 @@
   async function selectWarehouse(warehouse) {
     const version = ++selectionVersion;
     $("map-info-title").textContent = warehouse.name;
-    const content = $("map-info"); content.replaceChildren(node("p", warehouse.address), node("p", "サンプル在庫の概要を読み込み中…"));
+    const content = $("map-info"); content.replaceChildren(node("p", warehouse.address), node("p", "在庫の概要を読み込み中…"));
     content.append(link(`/warehouses/${warehouse.warehouse_id}`, "倉庫詳細"), node("span", " ／ "), link(`/stocks?warehouse_id=${warehouse.warehouse_id}`, "在庫を見る"));
     try {
       const result = await api(`/api/v1/warehouses/${warehouse.warehouse_id}/summary`);
@@ -74,7 +74,7 @@
       content.replaceChildren(node("p", result.warehouse.facility_type), node("p", result.warehouse.address));
       const c = result.capacity;
       content.append(node("p", c.state === "computed" ? `容量 ${c.used_volume_m3} / ${c.capacity_m3} m³（${c.usage_rate}%）・${{available:"空きあり",full:"満杯",over:"容量超過"}[c.level]}` : `容量計算不可：${c.issues.map(i => i.message).join(" ")}`));
-      content.append(node("p", `在庫は架空サンプル。期限判定日 ${result.base_date}（日本時間）。数量は品目の管理単位です。`));
+      content.append(node("p", `期限判定日 ${result.base_date}（日本時間）。数量は品目の管理単位です。`));
       if (!result.items.length) content.append(node("p", "有効在庫・日常管理基準は未登録です。"));
       for (const item of result.items) {
         content.append(node("p", `${item.item_name}：現物 ${item.physical_quantity} ${item.quantity_unit} ／ 割当済 ${item.allocated_total} ／ 未割当 ${item.unallocated_quantity}`));
@@ -100,7 +100,7 @@
           .on("click", () => selectWarehouse(warehouse)).addTo(pins);
       }
     }
-    $("warehouse-status").textContent = `表示倉庫 ${data.located.filter(matches).length}件 ／ 座標未確認 ${data.unlocated.filter(matches).length}件（在庫は架空サンプル）`;
+    $("warehouse-status").textContent = `表示倉庫 ${data.located.filter(matches).length}件 ／ 座標未確認 ${data.unlocated.filter(matches).length}件`;
   }
   async function searchWarehouses() {
     const version = ++searchVersion, q = $("map-query").value;

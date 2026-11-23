@@ -24,6 +24,7 @@ def create_app(test_config=None):
         DATABASE=os.environ.get(
             "UNFIRE_DATABASE", str(Path(app.instance_path) / "unfire.sqlite3")
         ),
+        DEMO_MODE=os.environ.get("UNFIRE_DEMO_MODE") == "1",
     )
     if test_config is not None:
         # テスト用の接続先を優先し、普段のデータを保護する。

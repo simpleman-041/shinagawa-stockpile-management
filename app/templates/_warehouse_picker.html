@@ -1,0 +1,18 @@
+{% macro warehouse_picker(id, label, empty_label, required=false, options=false) %}
+<div class="warehouse-picker" data-warehouse-picker>
+  <label for="{{ id }}" id="{{ id }}-label">{{ label }}{% if required %}（必須）{% endif %}</label>
+  <select name="warehouse_id" id="{{ id }}"{% if options %} data-options="warehouses"{% endif %}{% if required %} required{% endif %}>
+    <option value="">{{ empty_label }}</option>
+  </select>
+  <div class="warehouse-picker-control" hidden>
+    <div class="warehouse-picker-field">
+      <input id="{{ id }}-query" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+        aria-controls="{{ id }}-options" aria-describedby="{{ id }}-status" autocomplete="off" spellcheck="false"
+        placeholder="倉庫名で検索" disabled{% if required %} required{% endif %}>
+      <button type="button" class="secondary-button" aria-label="{{ label }}の選択・入力を解除" hidden>解除</button>
+    </div>
+    <ul class="warehouse-picker-results" id="{{ id }}-options" role="listbox" aria-labelledby="{{ id }}-label" hidden></ul>
+    <p class="warehouse-picker-status" id="{{ id }}-status" role="status"></p>
+  </div>
+</div>
+{% endmacro %}

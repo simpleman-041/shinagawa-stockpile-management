@@ -1,19 +1,22 @@
 <!doctype html>
+{% from '_application.html' import system_name, application_header %}
+{% from '_warehouse_picker.html' import warehouse_picker %}
 <html lang="ja">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>倉庫対応・共有割当 | UnFire</title>
+  <title>倉庫対応・共有割当 | {{ system_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/stocks.css') }}">
 </head>
 <body data-shelter-id="{{ shelter.shelter_id }}">
-<main class="page-shell">
+{{ application_header(request.endpoint) }}
+<main class="page-shell" id="main-content" tabindex="-1">
   <header class="page-header"><h1>{{ shelter.name }}の倉庫対応・共有割当</h1>
-    <nav><a href="/shelters">避難所一覧</a><a href="/shelters/{{ shelter.shelter_id }}/edit">避難所編集</a><a href="/calculations?shelter_id={{ shelter.shelter_id }}">備蓄計算</a><a href="/warehouses">倉庫一覧</a></nav>
+    <nav aria-label="この避難所の操作"><a href="/shelters/{{ shelter.shelter_id }}/edit">この避難所を編集</a><a href="/calculations?shelter_id={{ shelter.shelter_id }}">この避難所の備蓄計算</a></nav>
   </header>
   <p id="settings-loading" role="status">読み込み中…</p>
   <p id="settings-error" role="alert" class="status error" hidden></p>
-  <p id="settings-success" role="status" hidden></p>
+  <p id="settings-success" role="status" hidden class="success"></p>
   <button id="settings-refresh" type="button">現在の設定・割当を再取得</button>
   <noscript>設定の表示・保存にはJavaScriptを有効にしてください。</noscript>
   <section class="panel"><h2>現在の倉庫対応</h2>
@@ -32,7 +35,7 @@
     <p>有効在庫がある倉庫は数量0でも変更できません。変更すると旧・新対応先の避難所は設定中に戻ります。</p>
     <form id="warehouse-setting-form" class="stock-form"><fieldset data-controls disabled>
       <legend>倉庫と全対応先</legend>
-      <label>倉庫<select name="warehouse_id" id="settings-warehouse" required><option value="">選択してください</option></select></label>
+      {{ warehouse_picker('settings-warehouse', '倉庫', '選択してください', required=true) }}
       <p id="warehouse-current"></p>
       <label>区分<select name="allocation_mode" required><option value="">選択してください</option><option value="dedicated">専用</option><option value="shared">共有</option></select></label>
       <fieldset id="target-shelters"><legend>変更後の対応避難所（全件）</legend></fieldset>
@@ -41,12 +44,13 @@
     </fieldset></form>
   </section>
   <section class="panel"><h2>共有在庫の割当</h2>
-    <form id="allocation-filter" class="search-form"><label>対応する共有倉庫<select name="warehouse_id" id="allocation-warehouse"><option value="">すべて</option></select></label><button>表示</button></form>
-    <p id="allocation-count" role="status"></p><p id="allocation-empty" hidden>対応する共有倉庫に有効在庫がありません。</p>
-    <div class="table-wrap"><table><thead><tr><th>在庫・倉庫</th><th>品目・保管場所</th><th>期限</th><th>総数量</th><th>全割当済み</th><th>未割当</th><th>この避難所の割当</th></tr></thead><tbody id="allocation-rows"></tbody></table></div>
+    <form id="allocation-filter" class="search-form">{{ warehouse_picker('allocation-warehouse', '対応する共有倉庫', 'すべて') }}<button>割当を表示</button></form>
+    <p id="allocation-count" role="status"></p><p id="allocation-empty" hidden class="empty-state">表示条件に該当する共有在庫はありません。倉庫の対応設定と有効在庫を確認してください。</p>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="共有在庫の割当表"><table><thead><tr><th>在庫・倉庫</th><th>品目・保管場所</th><th>期限</th><th>総数量</th><th>全割当済み</th><th>未割当</th><th>この避難所の割当</th></tr></thead><tbody id="allocation-rows"></tbody></table></div>
     <div class="pagination"><button id="allocation-previous" type="button" disabled>前へ</button><button id="allocation-next" type="button" disabled>次へ</button></div>
     <p>0で割当を解除します。期限切れ・期限未確認の現物も表示します。数量は品目の管理単位で入力してください。</p>
   </section>
 </main>
+<script src="{{ url_for('static', filename='js/warehouse-picker.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/warehouse-settings.js') }}" defer></script>
 </body></html>

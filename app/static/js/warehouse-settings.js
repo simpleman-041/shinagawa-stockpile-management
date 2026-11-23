@@ -93,13 +93,15 @@
     if (!current.issues.length && groups.length) { const li = document.createElement("li"); li.textContent = "倉庫対応・割当の矛盾は検出されていません。"; issues.append(li); }
     const selector = element("settings-warehouse"), selected = selector.value;
     selector.replaceChildren(); option(selector, "", "選択してください");
-    for (const warehouse of warehouses) option(selector, String(warehouse.warehouse_id), `${warehouse.name}（ID ${warehouse.warehouse_id}）`);
-    selector.value = selected;
+    for (const warehouse of warehouses) option(selector, String(warehouse.warehouse_id), warehouse.name);
+    if (selected) selector.value = selected;
+    selector.dispatchEvent(new Event("warehouse-options-ready"));
     selectWarehouse();
     const filter = element("allocation-warehouse"); filter.replaceChildren(); option(filter, "", "すべて");
     for (const warehouse of current.warehouses.filter((w) => w.allocation_mode === "shared")) option(filter, warehouse.warehouse_id, warehouse.name);
     filter.value = warehouseFilter;
     if (!filter.value) warehouseFilter = "";
+    filter.dispatchEvent(new Event("warehouse-options-ready"));
   }
   async function loadAllocations() {
     const query = new URLSearchParams({ limit: "20", offset: String(offset) });
@@ -108,7 +110,7 @@
     total = result.page.total;
     const rows = element("allocation-rows"); rows.replaceChildren();
     element("allocation-empty").hidden = result.data.length !== 0;
-    element("allocation-count").textContent = `${total}件中 ${offset + (result.data.length ? 1 : 0)}〜${offset + result.data.length}件`;
+    element("allocation-count").textContent = result.data.length ? `${total}件中 ${offset + 1}〜${offset + result.data.length}件` : `${total}件`;
     for (const candidate of result.data) {
       const view = candidate.stock, stock = view.stock, row = document.createElement("tr");
       for (const text of [`在庫ID ${stock.stock_id} ／ ${warehouseName(stock.warehouse_id)}`, `${view.item_name} ／ ${stock.location}`,

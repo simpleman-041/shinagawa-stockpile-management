@@ -1,15 +1,16 @@
 <!doctype html>
+{% from '_application.html' import system_name, application_header %}
 <html lang="ja">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% if mode == "edit" %}避難所編集{% else %}避難所登録{% endif %} | UnFire</title>
+    <title>{% if mode == "edit" %}避難所編集{% else %}避難所登録{% endif %} | {{ system_name }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
   </head>
   <body>
-    <main class="page-shell">
+    {{ application_header(request.endpoint) }}
+    <main class="page-shell" id="main-content" tabindex="-1">
       <header class="page-header">
-        <p class="eyebrow">UnFire</p>
         <h1>{% if mode == "edit" %}避難所編集{% else %}避難所登録{% endif %}</h1>
         <p class="lead">住所と正式目標を管理します。</p>
       </header>
@@ -35,7 +36,7 @@
             <a href="{{ url_for('pages.shelters_page') }}">キャンセル</a>
           </div>
           <p id="shelter-form-error" class="status error" role="alert" hidden></p>
-          <p id="shelter-form-success" class="status" role="status" hidden></p>
+          <p id="shelter-form-success" class="success status" role="status" hidden></p>
         </form>
       </section>
       {% if mode == "edit" %}
@@ -51,7 +52,7 @@
           <p id="shelter-targets-form-field-error-target_days" class="status error" hidden></p>
           <button type="submit">正式目標を保存</button>
           <p id="shelter-targets-error" class="status error" role="alert" hidden></p>
-          <p id="shelter-targets-success" class="status" role="status" hidden></p>
+          <p id="shelter-targets-success" class="success status" role="status" hidden></p>
         </form>
         <p>設定状態：{{ "完了" if shelter.setup_state == "complete" else "編集中" }}</p>
         <nav><a href="/shelters/{{ shelter.shelter_id }}/warehouse-settings">倉庫対応・共有割当と設定完了の確認へ</a>

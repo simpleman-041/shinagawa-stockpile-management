@@ -11,6 +11,7 @@ async function harness(mode="calculate", search="?shelter_id=1", shelterCount=1)
     constructor(tag="div") { this.tag=tag; this.children=[]; this.events={}; this.elements={}; this.value=""; this.hidden=false; this.disabled=false; }
     append(...children) { this.children.push(...children); }
     replaceChildren(...children) { this.children=[...children]; }
+    setAttribute(name,value) { this[name]=value; }
     addEventListener(event,fn) { (this.events[event] ??= []).push(fn); }
     async dispatch(event) { for(const fn of this.events[event]||[]) await fn({preventDefault(){},currentTarget:this}); await new Promise(setImmediate); }
   }

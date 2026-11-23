@@ -1,18 +1,17 @@
 <!doctype html>
+{% from '_application.html' import system_name, application_header %}
 <html lang="ja">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>避難所一覧 | UnFire</title>
+    <title>避難所一覧 | {{ system_name }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
   </head>
   <body>
-    <main class="page-shell">
+    {{ application_header(request.endpoint) }}
+    <main class="page-shell" id="main-content" tabindex="-1">
       <header class="page-header">
-        <p class="eyebrow">UnFire</p>
         <h1>避難所一覧</h1>
-        <a href="/stocks">在庫管理へ</a>
-        <a href="/calculation-conditions">計算条件を管理</a>
         <p class="lead">避難所の住所、正式目標、設定状態を確認できます。</p>
       </header>
       <section class="panel" aria-labelledby="search-heading">
@@ -35,9 +34,9 @@
           <span id="shelter-count" class="count" aria-live="polite"></span>
         </div>
         <p id="shelter-loading" class="status" role="status">読み込み中…</p>
-        <p id="shelter-empty" class="status" hidden>避難所がありません。</p>
+        <p id="shelter-empty" class="empty-state status" hidden>条件に一致する避難所はありません。名称・住所を確認してください。</p>
         <p id="shelter-error" class="status error" role="alert" hidden></p>
-        <div class="table-wrap" id="shelter-table-wrap" hidden>
+        <div class="table-wrap" id="shelter-table-wrap" tabindex="0" role="region" aria-label="避難所一覧の表" hidden>
           <table>
             <caption class="visually-hidden">避難所一覧</caption>
             <thead>
@@ -52,7 +51,7 @@
             <tbody id="shelter-table-body"></tbody>
           </table>
         </div>
-        <nav aria-label="一覧のページ"><button type="button" id="shelter-previous" disabled>前へ</button> <button type="button" id="shelter-next" disabled>次へ</button></nav>
+        <nav class="pagination" aria-label="一覧のページ"><button type="button" id="shelter-previous" disabled>前へ</button> <button type="button" id="shelter-next" disabled>次へ</button></nav>
       </section>
     </main>
     <script src="{{ url_for('static', filename='js/shelters.js') }}" defer></script>

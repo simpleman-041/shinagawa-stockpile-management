@@ -1,28 +1,29 @@
 <!doctype html>
+{% from '_application.html' import system_name, application_header %}
 <html lang="ja">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>計算条件管理 | UnFire</title>
+  <title>計算条件管理 | {{ system_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/stocks.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/calculation-conditions.css') }}">
 </head>
 <body>
-<main class="page-shell">
-  <header class="page-header"><p class="eyebrow">UnFire</p><h1>計算条件管理</h1>
-    <nav><a href="/shelters">避難所一覧</a><a href="/calculations">備蓄計算</a><a href="/calculation-runs">計算履歴</a><a href="/items">品目一覧</a></nav>
+{{ application_header(request.endpoint) }}
+<main class="page-shell" id="main-content" tabindex="-1">
+  <header class="page-header"><h1>計算条件管理</h1>
     <p class="lead">需要ごとの使用量・根拠と、品目の対応・換算を設定します。</p>
   </header>
   <p>登録した全需要が備蓄計算の対象です。需要を追加すると、条件が揃うまでは総合人数・日数が計算不可になる場合があります。</p>
   <p>変更は次の試算に反映されます。保存済みの過去の計算結果は保持されます。</p>
   <p id="conditions-loading" role="status">読み込み中…</p>
   <p id="conditions-error" class="status error" role="alert" hidden></p>
-  <p id="conditions-success" class="status" role="status" hidden></p>
+  <p id="conditions-success" class="success status" role="status" hidden></p>
   <button id="conditions-refresh" type="button">登録済みの条件を再取得</button>
   <noscript>計算条件の取得・保存にはJavaScriptを有効にしてください。</noscript>
 
   <section class="panel"><h2>需要一覧</h2>
-    <p id="groups-count" role="status"></p><p id="groups-empty" hidden>需要は未登録です。下の「需要を追加」から登録してください。</p>
+    <p id="groups-count" role="status"></p><p id="groups-empty" hidden class="empty-state">需要は未登録です。下の「需要を追加」から登録してください。</p>
     <form id="group-select-form" class="stock-form"><fieldset id="select-controls" disabled><legend>編集する需要</legend>
       <label>需要<select name="group_id" id="condition-group"><option value="">選択してください</option></select></label>
       <button type="submit">条件を開く</button>
@@ -58,8 +59,8 @@
       </div>
       <p>共通単位を変更する際は、下の全品目の換算と根拠を再確認してください。未確認の係数は空欄で保存します。</p>
       <p>換算係数は「品目の管理単位1あたりの共通計算単位量」です。正数・小数第2位までで指定します。</p>
-      <p id="conversions-empty" hidden>所属品目はありません。下の「品目の所属・換算」から対応を登録してください。</p>
-      <div class="table-wrap"><table><caption>全所属品目（登録終了品目も保持します）</caption>
+      <p id="conversions-empty" hidden class="empty-state">所属品目はありません。下の「品目の所属・換算」から対応を登録してください。</p>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="所属品目と換算係数の表"><table><caption>全所属品目（登録終了品目も保持します）</caption>
         <thead><tr><th>品目・状態</th><th>管理単位</th><th>換算係数</th><th>根拠・出典</th><th>版・日付</th><th>適用条件</th></tr></thead><tbody id="conversion-rows"></tbody>
       </table></div>
       <p>全所属品目をまとめて保存します。品目の追加や他需要への移動は、下の専用操作を使ってください。</p>
@@ -69,7 +70,7 @@
 
   <section class="panel"><h2>品目の所属・換算</h2>
     <p>未所属品目の追加、換算の個別変更、別需要への明示的な移動を行います。登録終了品目も選択できます。</p>
-    <p id="membership-empty" hidden>品目と需要の両方を登録すると設定できます。</p>
+    <p id="membership-empty" hidden class="empty-state">品目と需要の両方を登録すると設定できます。</p>
     <form id="membership-form" class="stock-form"><fieldset id="membership-controls" disabled><legend>品目ごとの設定</legend>
       <label>品目<select name="item_id" id="membership-item"><option value="">選択してください</option></select></label>
       <p id="membership-current" role="status"></p>

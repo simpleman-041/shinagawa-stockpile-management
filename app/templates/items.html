@@ -1,17 +1,17 @@
 <!doctype html>
+{% from '_application.html' import system_name, application_header %}
 <html lang="ja">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>品目一覧 | UnFire</title>
+    <title>品目一覧 | {{ system_name }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
   </head>
   <body>
-    <main class="page-shell">
+    {{ application_header(request.endpoint) }}
+    <main class="page-shell" id="main-content" tabindex="-1">
       <header class="page-header">
-        <p class="eyebrow">UnFire</p>
         <h1>品目一覧</h1>
-        <a href="/stocks">在庫管理へ</a>
         <p class="lead">登録されている品目を確認できます。</p>
       </header>
 
@@ -43,9 +43,9 @@
           <span id="item-count" class="count" aria-live="polite"></span>
         </div>
         <p id="item-loading" class="status" role="status">読み込み中…</p>
-        <p id="item-empty" class="status" hidden>条件に一致する品目はありません。</p>
+        <p id="item-empty" class="empty-state status" hidden>条件に一致する品目はありません。品目名や登録状態を確認してください。</p>
         <p id="item-error" class="status error" role="alert" hidden></p>
-        <div class="table-wrap" id="item-table-wrap" hidden>
+        <div class="table-wrap" id="item-table-wrap" tabindex="0" role="region" aria-label="品目一覧の表" hidden>
           <table>
             <caption class="visually-hidden">品目一覧</caption>
             <thead>
@@ -62,7 +62,7 @@
             <tbody id="item-table-body"></tbody>
           </table>
         </div>
-        <nav aria-label="一覧のページ"><button type="button" id="item-previous" disabled>前へ</button> <button type="button" id="item-next" disabled>次へ</button></nav><button type="button" id="item-recheck" hidden>品目の状態を再確認</button>
+        <nav class="pagination" aria-label="一覧のページ"><button type="button" id="item-previous" disabled>前へ</button> <button type="button" id="item-next" disabled>次へ</button></nav><button type="button" id="item-recheck" hidden>品目の状態を再確認</button>
       </section>
     </main>
     <script src="{{ url_for('static', filename='js/items.js') }}" defer></script>
