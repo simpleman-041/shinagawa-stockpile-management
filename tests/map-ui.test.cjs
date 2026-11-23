@@ -49,17 +49,32 @@ async function harness({populationFailure=false, warehouseFailure=false}={}) {
     if(url==="/api/v1/warehouses/1/summary")return response({data:{warehouse:{name:"試験倉庫%",address:"試験住所",facility_type:"試験"},base_date:"2026-11-13",items:[summaryItem],capacity:{state:"unavailable",issues:[{message:"容積未設定"}]}}});
     throw Error(url);
   }
-  const context=vm.createContext({document:{getElementById:id=>nodes[id],createElement:()=>new Element()},L,fetch,crypto:webcrypto,TextDecoder,URLSearchParams,console});
+  const pendingDigests = [];
+  const crypto = {
+    subtle: {
+      digest(algorithm, bytes) {
+        const result = webcrypto.subtle.digest(algorithm, bytes);
+        pendingDigests.push(result);
+        return result;
+      },
+    },
+  };
+  const context=vm.createContext({document:{getElementById:id=>nodes[id],createElement:()=>new Element()},L,fetch,crypto,TextDecoder,URLSearchParams,console});
   for (const script of ["warehouse-catchment.js", "map.js"]) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, "../app/static/js", script), "utf8"), context);
   }
-  async function settle(){for(let i=0;i<8;i++)await new Promise(setImmediate);}
+  async function settle() {
+    // Let the mocked fetches start the digests, then wait for the UI to consume their results.
+    await new Promise(setImmediate);
+    await Promise.allSettled(pendingDigests.splice(0));
+    await new Promise(setImmediate);
+  }
   await settle();
   return {nodes,map,pins,getRegions:()=>regions,getCircle:()=>circle,tiles,calls,helpers:context.UnfireGIS,setPopFailure:v=>popFail=v,setWarehouseFailure:v=>warehouseFail=v,settle};
 }
 
 test("人口表示のON/OFFで倉庫ピンを維持し、座標不明をピンにしない",async()=>{
-  const h=await harness(); await h.settle();
+  const h=await harness();
   assert.equal(h.pins.children.length,1);
   assert.deepEqual(Array.from(h.pins.children[0].coords),[35.6,139.7]);
   const regions=h.getRegions();assert.ok(h.map.layers.has(regions));
@@ -72,28 +87,28 @@ test("人口表示のON/OFFで倉庫ピンを維持し、座標不明をピン�
 test("人口取得失敗でも倉庫ピンを残し、再取得できる",async()=>{
   const h=await harness({populationFailure:true});
   assert.equal(h.pins.children.length,1);assert.match(h.nodes["population-error"].textContent,/倉庫表示は引き続き/);
-  h.setPopFailure(false);await h.nodes["map-refresh"].dispatch("click");await h.settle();
+  h.setPopFailure(false);await h.nodes["map-refresh"].dispatch("click");
   assert.ok(h.getRegions());assert.equal(h.nodes["population-error"].hidden,true);
   h.setPopFailure(true);await h.nodes["map-refresh"].dispatch("click");
   assert.equal(h.pins.children.length,1);
 });
 
 test("倉庫失敗とタイル失敗を分けて案内し人口レイヤーを維持",async()=>{
-  const h=await harness({warehouseFailure:true});await h.settle();
+  const h=await harness({warehouseFailure:true});
   assert.match(h.nodes["warehouse-error"].textContent,/倉庫取得失敗/);
   assert.match(h.nodes["warehouse-status"].textContent,/倉庫一覧を表示できません/);
   assert.doesNotMatch(h.nodes["warehouse-status"].textContent,/前回取得した/);
   assert.ok(h.map.layers.has(h.getRegions()));
-  h.setWarehouseFailure(false);await h.nodes["map-refresh"].dispatch("click");await h.settle();
+  h.setWarehouseFailure(false);await h.nodes["map-refresh"].dispatch("click");
   assert.equal(h.pins.children.length,1);
-  h.setWarehouseFailure(true);await h.nodes["map-refresh"].dispatch("click");await h.settle();
+  h.setWarehouseFailure(true);await h.nodes["map-refresh"].dispatch("click");
   assert.equal(h.pins.children.length,1);
   assert.match(h.nodes["warehouse-status"].textContent,/前回取得した倉庫表示を保持/);
   h.tiles.events.tileerror();assert.match(h.nodes["tile-error"].textContent,/一覧は引き続き/);
 });
 
 test("ピンと区域の選択で横概要を更新し、名称住所をリテラル検索",async()=>{
-  const h=await harness();await h.settle();
+  const h=await harness();
   h.pins.children[0].events.click();await h.settle();
   assert.equal(h.nodes["map-info-title"].textContent,"試験倉庫%");
   assert.ok(h.nodes["map-info"].children.some(n=>n.href==="/warehouses/1"));
@@ -105,7 +120,7 @@ test("ピンと区域の選択で横概要を更新し、名称住所をリテ�
 });
 
 test("倉庫概要で品目別の期限接近数量と期限・基準状態を表示",async()=>{
-  const h=await harness();await h.settle();
+  const h=await harness();
   h.pins.children[0].events.click();await h.settle();
   const text=h.nodes["map-info"].children.map(n=>n.textContent||"").join(" ");
   assert.match(text,/架空米：現物 12\.00 箱 ／ 割当済 3\.00 ／ 未割当 9\.00/);
