@@ -7,6 +7,12 @@
 #map { height: 580px; background: #edf2f4; border: 1px solid #bdc9d0; z-index: 0; }
 .map-info { padding: 1rem; background: #f4f7fa; overflow-wrap: anywhere; max-height: 580px; overflow-y: auto; }
 .map-info table { min-width: 0; width: 100%; }
+.catchment-panel { margin-top: 12px; padding: 12px; border: 1px solid #c5d4e3; border-radius: 6px; background: #fff; }
+.catchment-panel h3 { margin: 0 0 10px; font-size: 1rem; }
+.catchment-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.catchment-inputs label { grid-template-rows: 1fr auto; }
+.catchment-panel p { margin: 10px 0; }
+.catchment-panel a[hidden] { display: none; }
 #map-legend { display: flex; flex-wrap: wrap; gap: 1rem; }
 .legend-color { display: inline-block; width: 1.2rem; height: 1.2rem; border: 1px solid #666; vertical-align: middle; margin-right: .4rem; }
 #map-source { overflow-wrap: anywhere; }
