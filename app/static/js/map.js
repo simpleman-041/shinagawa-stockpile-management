@@ -6,6 +6,8 @@
   const colors = ["#EFF3FF", "#BDD7E7", "#6BAED6", "#3182BD", "#08519C"];
   let data = {located: [], unlocated: []}, regions = null, warehousesLoaded = false, warehousesVersion = 0, populationVersion = 0, selectionVersion = 0;
   let searchVersion = 0, matchingWarehouseIds = null;
+  let census = null, populationLoading = true;
+  let catchmentWarehouse = null, catchmentCircle = null, catchmentResult = null;
   function error(id, text = "") { $(id).textContent = text; $(id).hidden = !text; }
   function csv(text) {
     const rows = []; let row = [], value = "", quoted = false;
@@ -63,9 +65,65 @@
     return value.data;
   }
   function fit() { if (pins.getLayers().length) map.fitBounds(pins.getBounds(), {padding: [25,25], maxZoom: 15}); }
+  function renderCatchmentTarget() {
+    const status = $("catchment-status");
+    const next = $("catchment-calculation");
+    next.hidden = true;
+    if (!catchmentWarehouse) return;
+    if (!catchmentCircle) { status.textContent = "倉庫の座標が未登録です。"; return; }
+    if (!census) {
+      status.textContent = populationLoading ? "人口データを読み込み中…" : "人口データを取得できません。再取得してください。";
+      return;
+    }
+    if (catchmentResult.state !== "available") {
+      status.textContent = catchmentResult.state === "outside"
+        ? "圏内に人口データの収録区域がありません。"
+        : "圏内に人口を集計できない区域があります。";
+      return;
+    }
+    const population = catchmentResult.population;
+    const summary = `圏内人口（収録区域内） ${population.toLocaleString("ja-JP")}人`;
+    const share = Number($("catchment-share").value);
+    if (!Number.isInteger(share) || share < 1 || share > 100) {
+      status.textContent = `${summary} ／ 支援対象割合を1〜100%の整数で入力してください。`;
+      return;
+    }
+    const people = Math.round(population * share / 100);
+    status.textContent = `${summary} ／ 試算人数 ${people.toLocaleString("ja-JP")}人`;
+    if (people < 1) return;
+    const params = new URLSearchParams({target_people: String(people)});
+    next.href = `/calculations?${params}`;
+    next.hidden = false;
+  }
+  function refreshCatchmentPopulation() {
+    catchmentResult = catchmentCircle && census
+      ? UnfireCatchment.estimate(census.features, census.populations, catchmentWarehouse, Number($("catchment-radius").value))
+      : null;
+    renderCatchmentTarget();
+  }
+  function showPopulationLayer() {
+    regions.addTo(map);
+    catchmentCircle?.bringToFront();
+  }
+  function selectCatchment(warehouse) {
+    catchmentWarehouse = warehouse;
+    $("catchment-panel").hidden = !warehouse;
+    if (catchmentCircle) map.removeLayer(catchmentCircle);
+    catchmentCircle = null;
+    const hasCoordinates = Number.isFinite(warehouse?.latitude) && Number.isFinite(warehouse?.longitude);
+    $("catchment-radius").disabled = !hasCoordinates;
+    $("catchment-share").disabled = !hasCoordinates;
+    if (hasCoordinates) {
+      catchmentCircle = L.circle([warehouse.latitude, warehouse.longitude], {
+        radius: Number($("catchment-radius").value), color: "#17449e", weight: 2, fillOpacity: 0.12, interactive: false,
+      }).addTo(map);
+    }
+    refreshCatchmentPopulation();
+  }
   async function selectWarehouse(warehouse) {
     const version = ++selectionVersion;
     $("map-info-title").textContent = warehouse.name;
+    selectCatchment(warehouse);
     const content = $("map-info"); content.replaceChildren(node("p", warehouse.address), node("p", "在庫の概要を読み込み中…"));
     content.append(link(`/warehouses/${warehouse.warehouse_id}`, "倉庫詳細"), node("span", " ／ "), link(`/stocks?warehouse_id=${warehouse.warehouse_id}`, "在庫を見る"));
     try {
@@ -130,7 +188,17 @@
   async function loadWarehouses() {
     const version = ++warehousesVersion;
     error("warehouse-error"); $("warehouse-status").textContent = "倉庫を読み込み中…";
-    try { const next = await api("/api/v1/gis/warehouses"); if (version !== warehousesVersion) return; data = next; warehousesLoaded = true; await searchWarehouses(); }
+    try {
+      const next = await api("/api/v1/gis/warehouses");
+      if (version !== warehousesVersion) return;
+      data = next;
+      warehousesLoaded = true;
+      if (catchmentWarehouse) {
+        const selected = [...data.located, ...data.unlocated].find(w => w.warehouse_id === catchmentWarehouse.warehouse_id);
+        selectCatchment(selected ?? null);
+      }
+      await searchWarehouses();
+    }
     catch (reason) { if (version === warehousesVersion) { error("warehouse-error", `倉庫取得失敗：${reason.message} 再取得で確認してください。`); $("warehouse-status").textContent = warehousesLoaded ? "前回取得した倉庫表示を保持しています。" : "倉庫一覧を表示できません。再取得してください。"; } }
   }
   async function verified(url, hash) {
@@ -143,6 +211,9 @@
   }
   async function loadPopulation() {
     const version = ++populationVersion;
+    census = null;
+    populationLoading = true;
+    renderCatchmentTarget();
     error("population-error"); $("population-status").textContent = "人口レイヤーを読み込み中…";
     try {
       const dataset = await api("/api/v1/gis/datasets/current");
@@ -157,12 +228,13 @@
       if (version !== populationVersion) return;
       const next = L.geoJSON(areas, {style: f => ({color:"#526674",weight:1,fillColor:densityColor(densityRatio(f,populations),maximum),fillOpacity:.55}), onEachFeature: (f, layer) => layer.on("click", () => {
         ++selectionVersion;
+        selectCatchment(null);
         $("map-info-title").textContent = f.properties.area_name;
         const p = populations.get(f.id)?.population, d = density(f,populations);
         $("map-info").replaceChildren(node("p",`区域コード ${f.id}`),node("p",`総人口 ${p === null || p === undefined ? "不明" : p.toLocaleString()+"人"}（${manifest.population_date}時点）`),node("p",`面積 ${f.properties.area_km2 ?? "不明"} km² ／ 密度 ${d === null ? "不明" : d.toFixed(2)+"人/km²"}`),node("p","供給対象区域や避難者数を示すものではありません。"));
       })});
       if (regions) map.removeLayer(regions); regions = next;
-      if ($("population-toggle").checked) regions.addTo(map);
+      if ($("population-toggle").checked) showPopulationLayer();
       $("population-status").textContent = `参考人口 ${manifest.population_date}時点 ／ 境界 ${manifest.boundary_version}`;
       $("map-legend").replaceChildren();
       for (const c of [...dataset.legend.classes,{lower:null,color:dataset.legend.unknown_color}]) {
@@ -171,12 +243,19 @@
       const sources = $("map-source"); sources.replaceChildren(node("span", "『国勢調査町丁・字等別境界データセット』（CODH作成）／『令和2年国勢調査町丁・字等別境界データ』（e-Stat）を加工。 "));
       for (const s of manifest.sources) sources.append(link(s.url,"出典"),node("span"," ／ "),link(s.usage_terms,"利用条件"),node("span"," "));
       sources.append(node("span",manifest.area_definition));
+      census = {features: areas.features, populations};
     } catch (reason) { if (version === populationVersion) { if (regions) map.removeLayer(regions); regions=null; $("map-legend").replaceChildren(); $("map-source").replaceChildren(); error("population-error", `人口レイヤー取得失敗：${reason.message} 倉庫表示は引き続き利用できます。`); $("population-status").textContent="人口レイヤーは表示できません。"; } }
+    if (version === populationVersion) {
+      populationLoading = false;
+      refreshCatchmentPopulation();
+    }
   }
+  $("catchment-radius").addEventListener("change", () => selectCatchment(catchmentWarehouse));
+  $("catchment-share").addEventListener("input", renderCatchmentTarget);
   $("map-search").addEventListener("submit", e => { e.preventDefault(); searchWarehouses(); });
   $("map-clear").addEventListener("click", () => { ++searchVersion; $("map-query").value=""; $("map-search-target").value="warehouse"; $("map-stock-status").value=""; matchingWarehouseIds=null; error("warehouse-error"); renderWarehouses(); fit(); });
   $("map-fit").addEventListener("click",fit);
   $("map-refresh").addEventListener("click", () => { loadWarehouses(); loadPopulation(); });
-  $("population-toggle").addEventListener("change", () => { if (regions) { if ($("population-toggle").checked) regions.addTo(map); else map.removeLayer(regions); } });
+  $("population-toggle").addEventListener("change", () => { if (regions) { if ($("population-toggle").checked) showPopulationLayer(); else map.removeLayer(regions); } });
   loadWarehouses(); loadPopulation();
 })();

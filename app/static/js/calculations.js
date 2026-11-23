@@ -7,6 +7,8 @@
   const expiryStates = {dated: "期限あり", none: "期限不要", unconfirmed: "期限未確認"};
   let shelters = [], preview = null, busy = false, historyOffset = 0, historyFilters = new URLSearchParams();
   const query = new URLSearchParams(location.search);
+  const incomingPeople = query.get("target_people");
+  const hasIncomingPeople = /^[1-9][0-9]*$/.test(incomingPeople ?? "") && Number.isSafeInteger(Number(incomingPeople));
   const display = (value, suffix = "") => value === null || value === undefined ? "計算不可" : `${value}${suffix}`;
   const at = (value) => new Intl.DateTimeFormat("ja-JP", {dateStyle: "medium", timeStyle: "medium", timeZone: "Asia/Tokyo"}).format(new Date(value));
   function node(tag, text) { const n = document.createElement(tag); n.textContent = text; return n; }
@@ -88,7 +90,8 @@
   }
   function selectShelter() {
     const shelter = shelters.find(s => String(s.shelter_id) === $("calculation-shelter").value);
-    $("target-people").value = shelter?.target_people ?? ""; $("target-days").value = shelter?.target_days ?? "";
+    if (!hasIncomingPeople) $("target-people").value = shelter?.target_people ?? "";
+    $("target-days").value = shelter?.target_days ?? "";
     $("formal-target").textContent = shelter ? `正式目標：${shelter.target_people === null ? "未設定" : `${shelter.target_people}人・${shelter.target_days}日`} ／ 倉庫設定${shelter.setup_state === "complete" ? "完了" : "中"}` : "";
     const links = $("shelter-links"); links.replaceChildren();
     if (shelter) links.append(link(`/shelters/${shelter.shelter_id}/edit`, "正式目標を編集"), node("span", " ／ "), link(`/shelters/${shelter.shelter_id}/warehouse-settings`, "倉庫対応・共有割当を確認"));
@@ -119,6 +122,7 @@
         preview = (await api("/calculations","POST",values)).data; render(preview);
         $("save-state").textContent = "未保存です。表示した条件・数量・根拠を確認して保存してください。";
         const params = new URLSearchParams({shelter_id:values.shelter_id,token:preview.calculation_token});
+        if (hasIncomingPeople) params.set("target_people", String(people));
         if ($("save-calculation-form").elements.correction_of_run_id.value) params.set("correction_of_run_id", $("save-calculation-form").elements.correction_of_run_id.value);
         history.replaceState(null,"",`/calculations?${params}`);
       } catch (error) { notice(error.message + (preview ? " 表示中の結果は前回の計算です。" : "")); }
@@ -167,6 +171,7 @@
       shelters.forEach(s => { const o = node("option",s.name); o.value = String(s.shelter_id); select.append(o); });
       if (query.has("shelter_id")) select.value = query.get("shelter_id");
       if (mode === "calculate") {
+        if (hasIncomingPeople) $("target-people").value = incomingPeople;
         selectShelter();
         if (query.has("correction_of_run_id")) $("save-calculation-form").elements.correction_of_run_id.value = query.get("correction_of_run_id");
         if (query.has("token")) { preview = (await api(`/calculations/${encodeURIComponent(query.get("token"))}`)).data; render(preview); }

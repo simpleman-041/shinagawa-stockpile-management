@@ -79,6 +79,28 @@ test("目標初期値、計算結果、整数調達切上げ、根拠、明示�
   const count=h.calls.length; await n["save-calculation-form"].dispatch("submit"); assert.equal(h.calls.length,count);
 });
 
+test("地図からの人数は避難所を選んだ後も維持し、既存の試算に渡す", async () => {
+  const h = await harness("calculate", "?target_people=120", 2), n = h.nodes;
+  assert.equal(n["target-people"].value, "120");
+  assert.equal(n["target-days"].value, "");
+  assert.equal(h.calls.filter(call => call.options.method === "POST").length, 0);
+  n["calculation-shelter"].value = "2";
+  await n["calculation-shelter"].dispatch("change");
+  assert.equal(n["target-people"].value, "120");
+  assert.equal(n["target-days"].value, 2);
+  assert.match(n["formal-target"].textContent, /正式目標：100人・2日/);
+  await n["calculation-form"].dispatch("submit");
+  assert.deepEqual(JSON.parse(h.calls.at(-1).options.body), {shelter_id:"2", target_people:120, target_days:2});
+  assert.match(h.changes.at(-1), /target_people=120/);
+});
+
+test("備蓄計算へのリンクで範囲外の人数を指定した場合は正式目標が初期値になる", async () => {
+  for (const invalid of ["0", "-1", "1.5", "9007199254740992"]) {
+    const h = await harness("calculate", `?shelter_id=1&target_people=${invalid}`);
+    assert.equal(h.nodes["target-people"].value, 100);
+  }
+});
+
 test("計算・保存の拒否と通信失敗は入力と直前の結果を保持し自動再送しない",async()=>{
   const h=await harness(),n=h.nodes;
   await n["calculation-form"].dispatch("submit");

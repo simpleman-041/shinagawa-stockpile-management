@@ -10,18 +10,26 @@ async function harness({populationFailure=false, warehouseFailure=false}={}) {
   }
   const template=fs.readFileSync(path.join(__dirname,"../app/templates/map.html"),"utf8");
   const nodes=Object.fromEntries([...template.matchAll(/\bid="([^"]+)"/g)].map(m=>[m[1],new Element()]));
+  nodes["catchment-radius"].value="500";
+  nodes["catchment-share"].value="100";
   const map={layers:new Set(),setView(){return this;},fitBounds(){},removeLayer(l){this.layers.delete(l);}};
   class Layer {
     constructor(){this.events={};this.children=[];}
     addTo(target){if(target===map)map.layers.add(this);else target.children.push(this);return this;}
+    bringToFront(){map.layers.delete(this);map.layers.add(this);return this;}
     on(k,fn){this.events[k]=fn;return this;}
     getLayers(){return this.children;} getBounds(){return {};} clearLayers(){this.children=[];}
   }
-  let pins,regions,tiles,popFail=populationFailure,warehouseFail=warehouseFailure;
+  let pins,regions,tiles,circle,popFail=populationFailure,warehouseFail=warehouseFailure;
   const L={map:()=>map,featureGroup:()=>pins=new Layer(),tileLayer:()=>tiles=new Layer(),divIcon:x=>x,marker:(coords)=>{const l=new Layer();l.coords=coords;return l;},geoJSON:(data,options)=>{regions=new Layer();regions.options=options;data.features.forEach(f=>{const l=new Layer();options.onEachFeature(f,l);regions.children.push(l);});return regions;}};
-  const features=[{type:"Feature",id:"001",properties:{area_name:"試験区域",area_km2:.5},geometry:{type:"Polygon",coordinates:[]}}];
+  L.circle=(coords, options)=>{circle=new Layer();circle.coords=coords;circle.options=options;return circle;};
+  const rectangle=(west,south,east,north)=>[[west,south],[east,south],[east,north],[west,north],[west,south]];
+  const features=[
+    {type:"Feature",id:"001",properties:{area_name:"試験区域",area_km2:.5},geometry:{type:"Polygon",coordinates:[rectangle(139.699,35.599,139.701,35.601)]}},
+    {type:"Feature",id:"002",properties:{area_name:"外側区域",area_km2:1.5},geometry:{type:"Polygon",coordinates:[rectangle(139.699,35.605,139.701,35.607)]}},
+  ];
   const geo=JSON.stringify({type:"FeatureCollection",features});
-  const csv="area_code,population,population_date\n001,10,2020-10-01\n";
+  const csv="area_code,population,population_date\n001,10,2020-10-01\n002,30,2020-10-01\n";
   const hash=s=>createHash("sha256").update(s).digest("hex");
   const manifest={dataset_id:"test",population_date:"2020-10-01",boundary_version:"試験版",sources:[{url:"https://example.com/source",usage_terms:"https://example.com/terms"}],area_definition:"試験",sha256:{areas_geojson:hash(geo),population_csv:hash(csv)}};
   const summaryItem={item_id:"1",item_name:"架空米",quantity_unit:"箱",physical_quantity:"12.00",allocated_total:"3.00",unallocated_quantity:"9.00",dated_usable_quantity:"8.00",no_expiry_quantity:"0.00",near_expiry_quantity:"2.00",expired_quantity:"1.00",unconfirmed_quantity:"3.00",minimum_quantity:"10.00",daily_usable_quantity:"8.00",below_minimum:true};
@@ -41,11 +49,13 @@ async function harness({populationFailure=false, warehouseFailure=false}={}) {
     if(url==="/api/v1/warehouses/1/summary")return response({data:{warehouse:{name:"試験倉庫%",address:"試験住所",facility_type:"試験"},base_date:"2026-11-13",items:[summaryItem],capacity:{state:"unavailable",issues:[{message:"容積未設定"}]}}});
     throw Error(url);
   }
-  const context={document:{getElementById:id=>nodes[id],createElement:()=>new Element()},L,fetch,crypto:webcrypto,TextDecoder,URLSearchParams,console};
-  vm.runInNewContext(fs.readFileSync(path.join(__dirname,"../app/static/js/map.js"),"utf8"),context);
+  const context=vm.createContext({document:{getElementById:id=>nodes[id],createElement:()=>new Element()},L,fetch,crypto:webcrypto,TextDecoder,URLSearchParams,console});
+  for (const script of ["warehouse-catchment.js", "map.js"]) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, "../app/static/js", script), "utf8"), context);
+  }
   async function settle(){for(let i=0;i<8;i++)await new Promise(setImmediate);}
   await settle();
-  return {nodes,map,pins,getRegions:()=>regions,tiles,calls,helpers:context.UnfireGIS,setPopFailure:v=>popFail=v,setWarehouseFailure:v=>warehouseFail=v,settle};
+  return {nodes,map,pins,getRegions:()=>regions,getCircle:()=>circle,tiles,calls,helpers:context.UnfireGIS,setPopFailure:v=>popFail=v,setWarehouseFailure:v=>warehouseFail=v,settle};
 }
 
 test("人口表示のON/OFFで倉庫ピンを維持し、座標不明をピンにしない",async()=>{
@@ -123,4 +133,55 @@ test("品目名と期限条件で倉庫を絞り、条件クリアで全倉庫�
   assert.ok(h.calls.some(url=>url.startsWith("/api/v1/stocks?") && url.includes("expiry_status=expired")));
   h.nodes["map-query"].value="別の場所";await h.nodes["map-search"].dispatch("submit");assert.equal(h.pins.children.length,0);
   await h.nodes["map-clear"].dispatch("click");assert.equal(h.pins.children.length,1);
+});
+
+test("倉庫の半径と支援対象割合を変更して、試算人数を備蓄計算へ渡す", async () => {
+  const h = await harness(), n = h.nodes;
+  h.pins.children[0].events.click();
+  await h.settle();
+  const firstCircle = h.getCircle();
+  assert.equal(firstCircle.options.radius, 500);
+  assert.match(n["catchment-status"].textContent, /圏内人口.*10人.*試算人数 10人/);
+  assert.equal(n["catchment-calculation"].href, "/calculations?target_people=10");
+
+  n["catchment-radius"].value = "1000";
+  await n["catchment-radius"].dispatch("change");
+  assert.equal(h.map.layers.has(firstCircle), false);
+  assert.equal(h.getCircle().options.radius, 1000);
+  n["catchment-share"].value = "25";
+  await n["catchment-share"].dispatch("input");
+  assert.match(n["catchment-status"].textContent, /圏内人口.*40人.*試算人数 10人/);
+  assert.equal(n["catchment-calculation"].href, "/calculations?target_people=10");
+
+  for (const invalid of ["", "0", "101", "12.5"]) {
+    n["catchment-share"].value = invalid;
+    await n["catchment-share"].dispatch("input");
+    assert.match(n["catchment-status"].textContent, /1〜100%の整数/);
+    assert.equal(n["catchment-calculation"].hidden, true);
+  }
+  n["catchment-share"].value = "1";
+  await n["catchment-share"].dispatch("input");
+  assert.match(n["catchment-status"].textContent, /試算人数 0人/);
+  assert.equal(n["catchment-calculation"].hidden, true);
+  h.getRegions().children[0].events.click();
+  assert.equal(n["catchment-panel"].hidden, true);
+  assert.equal(h.map.layers.has(h.getCircle()), false);
+  await n["unlocated-list"].children[0].children[0].dispatch("click");
+  assert.match(n["catchment-status"].textContent, /座標が未登録/);
+  assert.equal(n["catchment-calculation"].hidden, true);
+});
+
+test("人口データの再取得に失敗すると、前回の試算へのリンクを隠し再取得で復帰する", async () => {
+  const h = await harness(), n = h.nodes;
+  h.pins.children[0].events.click();
+  await h.settle();
+  assert.equal(n["catchment-calculation"].hidden, false);
+  h.setPopFailure(true);
+  await n["map-refresh"].dispatch("click");
+  assert.match(n["catchment-status"].textContent, /人口データを取得できません/);
+  assert.equal(n["catchment-calculation"].hidden, true);
+  h.setPopFailure(false);
+  await n["map-refresh"].dispatch("click");
+  assert.equal(n["catchment-calculation"].hidden, false);
+  assert.equal(h.pins.children.length, 1);
 });
