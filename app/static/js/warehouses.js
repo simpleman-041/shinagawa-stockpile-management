@@ -3,6 +3,7 @@
 
   const form = document.querySelector("#warehouse-search-form");
   const query = document.querySelector("#warehouse-query");
+  const facilityType = document.querySelector("#warehouse-type");
   const coordinates = document.querySelector("#warehouse-coordinates");
   const loading = document.querySelector("#warehouse-loading");
   const empty = document.querySelector("#warehouse-empty");
@@ -10,9 +11,11 @@
   const table = document.querySelector("#warehouse-table-wrap");
   const body = document.querySelector("#warehouse-table-body");
   const count = document.querySelector("#warehouse-count");
+  const pageStatus = document.querySelector("#warehouse-page");
   const previous = document.querySelector("#warehouse-previous");
   const next = document.querySelector("#warehouse-next");
   let offset = 0, total = 0, busy = false, filters = new URLSearchParams();
+  const pageSize = 50;
 
   function setState(state) {
     loading.hidden = state !== "loading";
@@ -56,24 +59,48 @@
     return tr;
   }
 
+  async function fetchPage(params, limit, offset) {
+    params.set("limit", String(limit));
+    params.set("offset", String(offset));
+    const response = await fetch(`/api/v1/warehouses?${params}`, { headers: { Accept: "application/json" } });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error?.message || "倉庫一覧を取得できませんでした。");
+    return payload;
+  }
+
+  async function warehousePage(selectedFilters, start) {
+    const params = new URLSearchParams(selectedFilters);
+    const normalize = (value) => value.normalize("NFKC").toLowerCase();
+    const type = normalize(params.get("facility_type") || "");
+    params.delete("facility_type");
+    if (!type) return fetchPage(params, pageSize, start);
+
+    // 既存APIで名称・住所と座標を絞り、施設種別は取得した候補全件に適用する。
+    const matches = [];
+    let cursor = 0;
+    while (true) {
+      const payload = await fetchPage(params, 200, cursor);
+      matches.push(...payload.data.filter((warehouse) => normalize(warehouse.facility_type).includes(type)));
+      cursor += payload.data.length;
+      if (cursor >= payload.page.total || !payload.data.length) break;
+    }
+    return { data: matches.slice(start, start + pageSize), page: { total: matches.length } };
+  }
+
   async function loadWarehouses(start = 0, selectedFilters = filters) {
     if (busy) return;
     busy = true; previous.disabled = next.disabled = true;
     setState("loading");
     body.replaceChildren();
     count.textContent = "";
-
-    const params = new URLSearchParams(selectedFilters);
-    params.set("limit", "50"); params.set("offset", String(start));
+    // 起動中のFlaskが前版のテンプレートを返す場合も、一覧を表示する。
+    if (pageStatus) pageStatus.textContent = "";
 
     try {
-      const response = await fetch(`/api/v1/warehouses?${params.toString()}`, {
-        headers: { Accept: "application/json" },
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error?.message || "倉庫一覧を取得できませんでした。");
+      const payload = await warehousePage(selectedFilters, start);
       filters = new URLSearchParams(selectedFilters); offset = start; total = payload.page.total;
       count.textContent = `${total}件${payload.data.length ? ` ／ ${offset + 1}〜${offset + payload.data.length}件目` : ""}`;
+      if (pageStatus && total) pageStatus.textContent = `${Math.floor(offset / pageSize) + 1} / ${Math.ceil(total / pageSize)} ページ`;
 
       if (!payload.data.length) {
         setState("empty");
@@ -85,7 +112,7 @@
       error.textContent = reason.message || "通信に失敗しました。時間をおいて再度お試しください。";
       setState("error");
     } finally {
-      busy = false; previous.disabled = offset === 0; next.disabled = offset + 50 >= total;
+      busy = false; previous.disabled = offset === 0; next.disabled = offset + pageSize >= total;
     }
   }
 
@@ -94,9 +121,11 @@
     const selectedFilters = new URLSearchParams();
     if (query.value) selectedFilters.set("q", query.value);
     if (coordinates.value) selectedFilters.set("coordinates", coordinates.value);
+    const type = facilityType?.value.trim();
+    if (type) selectedFilters.set("facility_type", type);
     return loadWarehouses(0, selectedFilters);
   });
-  previous.addEventListener("click", () => loadWarehouses(Math.max(0, offset - 50)));
-  next.addEventListener("click", () => loadWarehouses(offset + 50));
+  previous.addEventListener("click", () => loadWarehouses(Math.max(0, offset - pageSize)));
+  next.addEventListener("click", () => loadWarehouses(offset + pageSize));
   loadWarehouses();
 })();

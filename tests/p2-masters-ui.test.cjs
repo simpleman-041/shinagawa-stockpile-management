@@ -50,6 +50,48 @@ for (const [key, plural] of [["warehouse", "warehouses"], ["item", "items"], ["s
   });
 }
 
+test("旧テンプレートでも倉庫一覧の初期表示、検索、ページ送りができる", async () => {
+  const h = await harness("warehouse", () => response({
+    data: [{warehouse_id: "1", name: "架空倉庫", facility_type: "分散", address: "架空住所", latitude: null, capacity_m3: null}],
+    page: {total: 51},
+  }), false, {omitIds: ["warehouse-page", "warehouse-type"]});
+  const n = h.nodes;
+  assert.equal(n["warehouse-loading"].hidden, true);
+  assert.equal(n["warehouse-table-wrap"].hidden, false);
+  assert.equal(n["warehouse-table-body"].children[0].children[0].textContent, "架空倉庫");
+  n["warehouse-query"].value = "架空";
+  await n["warehouse-search-form"].dispatch("submit");
+  await n["warehouse-next"].dispatch("click");
+  const params = new URL(h.calls.at(-1).url, "http://test").searchParams;
+  assert.equal(params.get("q"), "架空");
+  assert.equal(params.get("offset"), "50");
+});
+
+test("倉庫種別で全候補を絞り込み、確定条件でページ送りする", async () => {
+  const rows = Array.from({length: 252}, (_, index) => ({
+    warehouse_id: String(index + 1), name: `倉庫${index + 1}`, facility_type: index < 200 ? "分散" : "集中",
+    address: "品川区", capacity_m3: null, latitude: 35.6, longitude: 139.7,
+  }));
+  const h = await harness("warehouse", url => {
+    const params = new URL(url, "http://test").searchParams;
+    assert.equal(params.has("facility_type"), false);
+    const start = Number(params.get("offset")), limit = Number(params.get("limit"));
+    return response({data: rows.slice(start, start + limit), page: {total: rows.length}});
+  });
+  const n = h.nodes;
+  n["warehouse-query"].value = "品川";
+  n["warehouse-coordinates"].value = "known";
+  n["warehouse-type"].value = " 集中 ";
+  await n["warehouse-search-form"].dispatch("submit");
+  assert.equal(n["warehouse-count"].textContent, "52件 ／ 1〜50件目");
+  assert.equal(n["warehouse-page"].textContent, "1 / 2 ページ");
+  assert.match(h.calls.at(-1).url, /q=.*&coordinates=known&limit=200&offset=200/);
+  n["warehouse-type"].value = "分散";
+  await n["warehouse-next"].dispatch("click");
+  assert.equal(n["warehouse-page"].textContent, "2 / 2 ページ");
+  assert.deepEqual(n["warehouse-table-body"].children.map(row => row.children[0].textContent), ["倉庫251", "倉庫252"]);
+});
+
 test("倉庫フォーム: 項目別・業務エラー、入力保持、成功時クリア、二重送信防止", async () => {
   let done, reject = true;
   const h = await harness("warehouse", async () => {

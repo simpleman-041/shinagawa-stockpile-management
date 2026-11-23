@@ -1,16 +1,18 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ warehouse.name }} | UnFire</title><link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}"></head>
-<body data-warehouse-id="{{ warehouse.warehouse_id }}"><main class="page-shell"><header class="page-header"><h1>{{ warehouse.name }}</h1><nav><a href="/map">地図</a> ／ <a href="/warehouses">倉庫一覧</a></nav></header>
+{% from '_application.html' import system_name, application_header %}
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ warehouse.name }} | {{ system_name }}</title><link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}"></head>
+<body data-warehouse-id="{{ warehouse.warehouse_id }}">{{ application_header(request.endpoint) }}
+<main class="page-shell" id="main-content" tabindex="-1"><header class="page-header"><h1>{{ warehouse.name }}</h1></header>
 <section class="panel"><h2>倉庫情報</h2><dl><dt>施設種別</dt><dd>{{ warehouse.facility_type }}</dd><dt>住所</dt><dd>{{ warehouse.address }}</dd><dt>座標</dt><dd>{% if warehouse.latitude is none %}未確認{% else %}{{ warehouse.latitude }}, {{ warehouse.longitude }}{% endif %}</dd><dt>保管可能容量</dt><dd>{{ '未設定' if warehouse.capacity_m3 is none else warehouse.capacity_m3|string + ' m³' }}</dd><dt>計算区分</dt><dd>{{ {'dedicated':'専用','shared':'共有'}.get(warehouse.allocation_mode,'未設定') }}</dd></dl>
-<p><a href="/stocks?warehouse_id={{ warehouse.warehouse_id }}">この倉庫の在庫を見る</a> ／ <a href="/warehouses/{{ warehouse.warehouse_id }}/edit">倉庫を編集</a></p><p>在庫は架空のサンプルデータです。</p></section>
+<p><a href="/stocks?warehouse_id={{ warehouse.warehouse_id }}">この倉庫の在庫を見る</a> ／ <a href="/warehouses/{{ warehouse.warehouse_id }}/edit">倉庫を編集</a></p></section>
 <section class="panel" aria-labelledby="threshold-heading">
   <h2 id="threshold-heading">{{ warehouse.name }}の日常在庫基準</h2>
   <p>品目の管理単位で、同じ倉庫・品目の使用可能数と比較します。期限切れ・期限未確認は日常比較から除きます。在庫数量は変更しません。</p>
   <p>未設定と0は異なります。0も設定済みの基準です。設定解除は提供していません。</p>
   <p id="threshold-loading" class="status" role="status">読み込み中…</p>
   <p id="threshold-error" class="status error" role="alert" hidden></p>
-  <p id="threshold-success" class="status" role="status" hidden></p>
-  <p id="threshold-empty" class="status" hidden>品目が未登録です。品目一覧から登録してください。</p>
+  <p id="threshold-success" class="success status" role="status" hidden></p>
+  <p id="threshold-empty" class="empty-state status" hidden>品目が未登録です。品目一覧から登録してください。</p>
   <form id="threshold-form" class="threshold-form">
     <fieldset id="threshold-inputs" disabled>
       <legend>対象品目と基準</legend>
