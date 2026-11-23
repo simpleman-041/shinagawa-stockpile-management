@@ -20,6 +20,7 @@ h2 { margin-bottom: 0; font-size: 1.08rem; }
 .warehouse-card { margin-top: 18px; }
 .card-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 12px; border-bottom: 2px solid #e5edf3; }
 .card-link { flex: none; font-size: .78rem; font-weight: 800; text-decoration: none; }
+.card-link-disabled { color: #8a9aa8; cursor: not-allowed; }
 .card-link span { font-size: 1.1rem; vertical-align: -1px; }
 .card-description { margin: 12px 0 10px; color: #708396; font-size: .82rem; }
 .alert-list { display: grid; gap: 6px; }
@@ -48,6 +49,8 @@ td { color: #28465d; }
 .usage-bar > span.over { background: #c75252; }
 .state-badge { min-width: 58px; background: #168b79; }
 .state-badge.over { background: #c75252; }
+.state-badge.unknown { background: #8797a5; }
+.capacity-reason { display: block; max-width: 220px; margin-top: 4px; color: #6b7280; font-size: .72rem; white-space: normal; }
 .status { margin: 14px 0; color: #5d7487; }
 .error { color: #b42318; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

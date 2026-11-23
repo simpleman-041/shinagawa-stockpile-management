@@ -59,7 +59,8 @@
     values.slice(0, 8).forEach(({ warehouse, capacity }) => {
       const row = document.createElement("tr");
       const rate = capacity.state === "computed" ? Number(capacity.usage_rate) : null;
-      const over = capacity.level === "over" || (rate !== null && rate >= 100);
+      const over = capacity.level === "over" || capacity.level === "full";
+      const unavailable = capacity.level === "unknown" || capacity.state !== "computed";
       const used = capacity.state === "computed" ? capacity.used_volume_m3 : null;
       [warehouse.name, number(capacity.capacity_m3), number(used), rate === null ? "未計算" : `${number(rate)}%`]
         .forEach((value) => { const cell = document.createElement("td"); cell.textContent = value; row.append(cell); });
@@ -79,12 +80,40 @@
 
       const stateCell = document.createElement("td");
       const state = document.createElement("span");
-      state.className = `state-badge${over ? " over" : ""}`;
-      state.textContent = over ? "超過" : "正常";
+      state.className = `state-badge${over ? " over" : unavailable ? " unknown" : ""}`;
+      state.textContent = over ? "超過" : unavailable ? "計算不可" : "正常";
       stateCell.append(state); row.append(stateCell);
+      if (unavailable) {
+        const reason = document.createElement("small");
+        reason.className = "capacity-reason";
+        reason.textContent = (capacity.issues || []).map((issue) => issue.message).join(" ") || "容量を計算できません。";
+        stateCell.append(reason);
+      }
       body.append(row);
     });
     $("warehouse-empty").hidden = values.length > 0;
+  }
+
+  function popupContent(warehouse, capacity) {
+    const root = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = warehouse.name;
+    const status = document.createElement("span");
+    const over = capacity.level === "over" || capacity.level === "full";
+    const unavailable = capacity.level === "unknown" || capacity.state !== "computed";
+    status.textContent = over ? "超過" : unavailable ? "計算不可" : `使用率 ${number(capacity.usage_rate)}%`;
+    root.append(title, document.createElement("br"), status);
+    if (unavailable) {
+      const reason = document.createElement("span");
+      reason.textContent = `（${(capacity.issues || []).map((issue) => issue.message).join(" ") || "容量を計算できません。"}）`;
+      root.append(reason);
+    }
+    root.append(document.createElement("br"));
+    const link = document.createElement("a");
+    link.href = `/warehouses/${encodeURIComponent(warehouse.warehouse_id)}`;
+    link.textContent = "詳細を見る";
+    root.append(link);
+    return root;
   }
 
   function initMap(values) {
@@ -97,11 +126,10 @@
     L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "地理院タイル" }).addTo(map);
     const markers = [];
     values.filter(({ warehouse }) => warehouse.latitude !== null && warehouse.longitude !== null).forEach(({ warehouse, capacity }) => {
-      const level = capacity.level === "over" || Number(capacity.usage_rate) >= 100 ? "over" : capacity.state === "computed" ? "available" : "unknown";
+      const level = capacity.level === "over" || capacity.level === "full" ? "over" : capacity.level === "available" ? "available" : "unknown";
       const icon = L.divIcon({ className: `home-pin ${level}`, iconSize: [14, 14], iconAnchor: [7, 7] });
-      const status = level === "over" ? "超過" : level === "unknown" ? "使用状況未計算" : `使用率 ${number(capacity.usage_rate)}%`;
       const marker = L.marker([warehouse.latitude, warehouse.longitude], { icon })
-        .bindPopup(`<strong>${warehouse.name}</strong><br>${status}<br><a href="/warehouses/${warehouse.warehouse_id}">詳細を見る</a>`)
+        .bindPopup(popupContent(warehouse, capacity))
         .addTo(map);
       markers.push(marker);
     });
