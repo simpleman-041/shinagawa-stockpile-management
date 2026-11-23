@@ -14,6 +14,7 @@
   let current;
   let token;
   let offset = 0;
+  let listFilters = new URLSearchParams();
   let listGeneration = 0;
   let movementOffset = 0;
   let movementGeneration = 0;
@@ -103,7 +104,7 @@
     if (warehouseId && !warehouse) throw new Error("指定された倉庫が見つかりません。倉庫一覧から選び直してください。");
     const name = warehouse ? `${warehouse.name}（倉庫ID ${warehouseId}）` : "全倉庫";
     $("stock-heading").textContent = mode === "create" ? `${warehouse ? name + "の" : ""}在庫登録` : `${name}の在庫`;
-    document.title = `${$("stock-heading").textContent} | UnFire`;
+    document.title = `${$("stock-heading").textContent} | ${document.body.dataset.systemName}`;
     const query = warehouse ? `?warehouse_id=${encodeURIComponent(warehouseId)}` : "";
     $("stock-create-link").href = `/stocks/new${query}`;
     if ($("stock-cancel-link")) $("stock-cancel-link").href = `/stocks${query}`;
@@ -131,28 +132,32 @@
       finally { buttons.forEach((b) => { b.disabled = false; }); }
     });
   }
-  async function loadList() {
+  async function loadList(filters, pageOffset = 0) {
     const generation = ++listGeneration;
-    const params = new URLSearchParams(new FormData($("search")));
+    const params = new URLSearchParams(filters);
     for (const [key, value] of [...params]) if (!value) params.delete(key);
-    params.set("limit", "50"); params.set("offset", String(offset));
+    params.set("limit", "50"); params.set("offset", String(pageOffset));
     $("loading").hidden = false;
     $("error").hidden = true;
     try {
       const result = await api(`/api/v1/stocks?${params}`);
       if (generation !== listGeneration) return;
       warehouseContext(params.get("warehouse_id") || "");
+      listFilters = filters;
+      offset = pageOffset;
       $("rows").replaceChildren();
       for (const value of result.data) {
         const data = rowData(value);
         const tr = document.createElement("tr");
-        for (const field of ["品目", "分類", "倉庫", "保管場所", "数量", "使用期限", "期限状況"]) {
-          const td = document.createElement("td"); td.textContent = data[field]; tr.append(td);
+        for (const field of ["品目", "分類", "倉庫", "保管場所", "数量", "使用期限", "期限状況", "在庫状態"]) {
+          const td = document.createElement("td"); td.textContent = data[field];
+          if (field === "数量") td.className = "numeric";
+          tr.append(td);
         }
         const td = document.createElement("td"); const a = document.createElement("a");
         a.href = `/stocks/${value.stock.stock_id}`; a.textContent = "詳細を見る"; td.append(a); tr.append(td); $("rows").append(tr);
       }
-      $("count").textContent = `${result.page.total}件中 ${offset + (result.data.length ? 1 : 0)}〜${offset + result.data.length}件`;
+      $("count").textContent = result.data.length ? `${result.page.total}件中 ${offset + 1}〜${offset + result.data.length}件` : `${result.page.total}件`;
       $("empty").hidden = result.data.length !== 0;
       $("previous").disabled = offset === 0;
       $("next").disabled = offset + 50 >= result.page.total;
@@ -284,20 +289,24 @@
       if (form.elements.expiry_state) form.elements.expiry_state.addEventListener("change", () => syncExpiry(form));
     }
     if (mode === "list") {
+      const form = $("search");
       const params = new URLSearchParams(location.search);
       warehouseContext(params.get("warehouse_id") || "");
-      for (const [key, value] of params) if ($( "search").elements[key]) $("search").elements[key].value = value;
-      offset = /^\d+$/.test(params.get("offset") || "") ? Number(params.get("offset")) : 0;
-      $("search").addEventListener("submit", (e) => { e.preventDefault(); offset = 0; void loadList(); });
-      $("clear").addEventListener("click", () => { $("search").reset(); offset = 0; void loadList(); });
-      $("previous").addEventListener("click", () => { offset = Math.max(0, offset - 50); void loadList(); });
-      $("next").addEventListener("click", () => { offset += 50; void loadList(); });
-      await loadList();
+      for (const [key, value] of params) if (form.elements[key]) form.elements[key].value = value;
+      form.elements.warehouse_id.dispatchEvent(new Event("warehouse-options-ready"));
+      const formFilters = () => new URLSearchParams(new FormData(form));
+      const initialOffset = /^\d+$/.test(params.get("offset") || "") ? Number(params.get("offset")) : 0;
+      form.addEventListener("submit", (e) => { e.preventDefault(); void loadList(formFilters()); });
+      $("clear").addEventListener("click", () => { form.reset(); void loadList(formFilters()); });
+      $("previous").addEventListener("click", () => { void loadList(listFilters, Math.max(0, offset - 50)); });
+      $("next").addEventListener("click", () => { void loadList(listFilters, offset + 50); });
+      await loadList(formFilters(), initialOffset);
     } else if (mode === "create") {
       const form = $("create");
       const warehouseId = new URLSearchParams(location.search).get("warehouse_id") || "";
       warehouseContext(warehouseId);
       form.elements.warehouse_id.value = warehouseId;
+      form.elements.warehouse_id.dispatchEvent(new Event("warehouse-options-ready"));
       form.elements.warehouse_id.addEventListener("change", () => warehouseContext(form.elements.warehouse_id.value));
       form.elements.item_id.addEventListener("change", () => {
         const item = refs.items.find((i) => i.item_id === form.elements.item_id.value);

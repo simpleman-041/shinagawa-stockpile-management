@@ -16,6 +16,7 @@ async function harness() {
     append(...nodes) { this.children.push(...nodes); }
     replaceChildren(...nodes) { this.children = [...nodes]; }
     addEventListener(type, fn) { (this.events[type] ??= []).push(fn); }
+    dispatchEvent(event) { for (const fn of this.events[event.type] || []) fn(event); }
     scrollIntoView() {}
     querySelectorAll(selector) {
       const nodes = this.children.flatMap((child) => [child, ...child.querySelectorAll("all")]);
@@ -27,7 +28,8 @@ async function harness() {
     }
   }
   const template = fs.readFileSync(path.join(__dirname, "../app/templates/warehouse_settings.html"), "utf8");
-  const nodes = Object.fromEntries([...template.matchAll(/\bid="([^"]+)"/g)].map((match) => [match[1], new Element()]));
+  const ids = [...template.matchAll(/\bid="([^"]+)"|warehouse_picker\('([^']+)'/g)];
+  const nodes = Object.fromEntries(ids.map((match) => [match[1] || match[2], new Element()]));
   for (const [id, names] of Object.entries({ "warehouse-setting-form": ["warehouse_id", "allocation_mode", "confirmed"], "setup-form": ["setup_state", "confirmed"], "allocation-filter": ["warehouse_id"] })) {
     nodes[id].tag = "form";
     for (const name of names) nodes[id].elements[name] = new Element("input");
@@ -76,7 +78,7 @@ async function harness() {
       if (selector === "button, [data-controls]") return allNodes.filter((node) => node.tag === "button").concat(controls);
       return allNodes.filter((node) => node.tag === selector);
     } };
-  await vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../app/static/js/warehouse-settings.js"), "utf8"), { document, fetch, URLSearchParams });
+  await vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../app/static/js/warehouse-settings.js"), "utf8"), { document, fetch, URLSearchParams, Event });
   assert.equal(nodes["settings-error"].textContent, undefined);
   return { nodes, calls, setOffline: (value) => { offline = value; }, setReject: (value) => { reject = value; }, setEmpty: () => { empty = true; } };
 }

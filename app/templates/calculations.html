@@ -1,20 +1,21 @@
 <!doctype html>
+{% from '_application.html' import system_name, application_header %}
 <html lang="ja">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ '計算履歴' if mode == 'history' else '保存した備蓄計算' if mode == 'saved' else '備蓄計算' }} | UnFire</title>
+  <title>{{ '計算履歴' if mode == 'history' else '保存した備蓄計算' if mode == 'saved' else '備蓄計算' }} | {{ system_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/stocks.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/calculations.css') }}">
 </head>
 <body data-mode="{{ mode }}" {% if mode == 'saved' %}data-run-id="{{ run_id }}"{% endif %}>
-<main class="page-shell">
+{{ application_header(request.endpoint) }}
+<main class="page-shell" id="main-content" tabindex="-1">
   <header class="page-header"><h1>{{ '計算履歴' if mode == 'history' else '保存した備蓄計算' if mode == 'saved' else '備蓄計算' }}</h1>
-    <nav><a href="/shelters">避難所一覧</a><a href="/calculations">備蓄計算</a><a href="/calculation-conditions">計算条件</a><a href="/calculation-runs">計算履歴</a><a href="/stocks">在庫一覧</a></nav>
   </header>
   <p id="calculation-loading" role="status">読み込み中…</p>
   <p id="calculation-error" role="alert" class="status error" hidden></p>
-  <p id="calculation-success" role="status" hidden></p>
+  <p id="calculation-success" role="status" hidden class="success"></p>
   <noscript>計算・保存・履歴表示にはJavaScriptを有効にしてください。</noscript>
   {% if mode == 'calculate' %}
   <section class="panel"><h2>試算条件</h2>
@@ -39,8 +40,8 @@
       <label>終了日時（含まない・端末の時間帯）<input name="to" type="datetime-local" step="1"></label>
       <button>検索</button>
     </fieldset></form>
-    <p id="history-count" role="status"></p><p id="history-empty" hidden>条件に一致する保存済み計算はありません。</p>
-    <div id="history-table" class="table-wrap" hidden><table><thead><tr><th>計算ID</th><th>当時の避難所名</th><th>計算日時（日本時間）</th><th>目標</th><th>状態</th><th>総合人数・日数</th><th>詳細</th></tr></thead><tbody id="history-rows"></tbody></table></div>
+    <p id="history-count" role="status"></p><p id="history-empty" hidden class="empty-state">条件に一致する保存済み計算はありません。避難所や計算日時の条件を確認してください。</p>
+    <div id="history-table" class="table-wrap" tabindex="0" role="region" aria-label="計算履歴の表" hidden><table><thead><tr><th>計算ID</th><th>当時の避難所名</th><th>計算日時（日本時間）</th><th>目標</th><th>状態</th><th>総合人数・日数</th><th>詳細</th></tr></thead><tbody id="history-rows"></tbody></table></div>
     <div class="pagination"><button id="history-previous" type="button" disabled>前へ</button><button id="history-next" type="button" disabled>次へ</button></div>
   </section>
   {% endif %}
@@ -49,7 +50,7 @@
     <h2 id="result-title">計算結果</h2>
     <p id="result-metadata"></p><p id="result-state"></p><p id="result-minimum" class="calculation-minimum"></p>
     <p id="result-warning" class="calculation-warning" hidden></p><p id="result-reason" class="calculation-reason" hidden></p>
-    <div class="table-wrap"><table><caption>需要別の充足状況（異なる単位の数量は合計しません）</caption><thead><tr><th>需要・単位</th><th>必要量</th><th>算入量</th><th>充足量</th><th>不足量・調達の目安</th><th>充足率</th><th>対応可能人数</th><th>対応可能日数</th><th>状態・参考量・理由</th></tr></thead><tbody id="result-groups"></tbody></table></div>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="需要別の充足状況の表"><table><caption>需要別の充足状況（異なる単位の数量は合計しません）</caption><thead><tr><th>需要・単位</th><th>必要量</th><th>算入量</th><th>充足量</th><th>不足量・調達の目安</th><th>充足率</th><th>対応可能人数</th><th>対応可能日数</th><th>状態・参考量・理由</th></tr></thead><tbody id="result-groups"></tbody></table></div>
     <details><summary>計算条件・算入根拠を確認</summary><div id="result-details"></div></details>
     <p>登録値に基づく目安です。期間中の消費・補給・期限到来による変化は予測しません。充足率の表示は小数第1位、人数・日数は切り捨てです。</p>
     <p id="correction-links"></p>

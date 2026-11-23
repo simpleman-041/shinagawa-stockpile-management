@@ -13,10 +13,11 @@ class Element {
 }
 async function settle() { for (let i = 0; i < 6; i++) await new Promise(setImmediate); }
 const response = (data, status = 200) => ({ok: status < 400, status, json: async () => structuredClone(data)});
-async function harness(key, transport, form = false, timers = {}) {
+async function harness(key, transport, form = false, options = {}) {
   const plural = {warehouse: "warehouses", item: "items", shelter: "shelters"}[key];
   const html = fs.readFileSync(path.join(__dirname, `../../app/templates/${plural}${form ? "_form" : ""}.html`), "utf8");
   const nodes = Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(m => [m[1], new Element()]));
+  for (const id of options.omitIds ?? []) delete nodes[id];
   const calls = [], location = {href: "unchanged"}, pending = new Set();
   if (form) {
     const f = nodes[`${key}-form`]; f.dataset = {mode: "create"};
@@ -29,7 +30,7 @@ async function harness(key, transport, form = false, timers = {}) {
       calls.push({url, options}); const request = Promise.resolve().then(() => transport(url, options)); pending.add(request);
       try { return await request; } finally { pending.delete(request); }
     }, window: {location, confirm: () => true},
-    URLSearchParams, FormData, AbortController, setTimeout: timers.setTimeout || setTimeout, clearTimeout};
+    URLSearchParams, FormData, AbortController, setTimeout: options.setTimeout || setTimeout, clearTimeout};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, `../../app/static/js/${plural}${form ? "-form" : ""}.js`), "utf8"), context);
   await settle(); while (pending.size) { await Promise.allSettled([...pending]); await settle(); }
   return {nodes, calls, location, settle};

@@ -1,0 +1,27 @@
+{% set system_name = '平常時備蓄管理支援システム' %}
+
+{% macro application_header(endpoint) %}
+<a class="skip-link" href="#main-content">本文へ移動</a>
+<header class="app-header">
+  <div class="app-header-inner">
+    <p class="app-name">{{ system_name }}</p>
+    <nav class="app-nav" aria-label="メインメニュー">
+      {% for label, page, related in [
+        ('倉庫一覧', 'warehouses_page', ['warehouses_new_page', 'warehouses_edit_page', 'warehouse_detail_page']),
+        ('在庫一覧', 'stocks_page', ['stocks_new_page', 'stocks_detail_page']),
+        ('品目一覧', 'items_page', ['items_new_page', 'items_edit_page']),
+        ('避難所一覧', 'shelters_page', ['shelters_new_page', 'shelters_edit_page', 'shelter_warehouse_settings_page']),
+        ('備蓄計算', 'calculations_page', []),
+        ('計算履歴', 'calculation_history_page', ['calculation_saved_page']),
+        ('計算条件管理', 'calculation_conditions_page', []),
+        ('地図', 'map_page', [])
+      ] %}
+        <a href="{{ url_for('pages.' ~ page) }}"{% if endpoint == 'pages.' ~ page %} aria-current="page"{% elif endpoint and endpoint.split('.')[-1] in related %} aria-current="location"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+</header>
+{% if config.DEMO_MODE %}
+<p class="demo-notice"><strong>演習用データ</strong>　実在する倉庫の公開情報を使用しています。在庫、避難所との対応、計算条件、検証用の施設・品目は架空です。</p>
+{% endif %}
+{% endmacro %}

@@ -1,22 +1,24 @@
 <!doctype html>
+{% from '_application.html' import system_name, application_header %}
 <html lang="ja">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     {% if mode == "edit" %}
-      <title>品目編集 | UnFire</title>
+      <title>品目編集 | {{ system_name }}</title>
     {% else %}
-      <title>品目登録 | UnFire</title>
+      <title>品目登録 | {{ system_name }}</title>
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/warehouses.css') }}">
   </head>
   <body>
-    <main class="page-shell">
+    {{ application_header(request.endpoint) }}
+    <main class="page-shell" id="main-content" tabindex="-1">
       <header class="page-header">
-        <p class="eyebrow">UnFire</p>
         {% if mode == "edit" %}
           <h1>品目編集</h1>
           <p class="lead">登録済みの品目情報を編集します。</p>
+          <a href="{{ url_for('pages.stocks_page', item_id=item.item_id) }}">この品目の在庫を見る</a>
         {% else %}
           <h1>品目登録</h1>
           <p class="lead">新しい品目情報を登録します。</p>

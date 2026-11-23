@@ -37,6 +37,7 @@
     parent.append(node("h3", title));
     if (!rows.length) { parent.append(node("p", "対象はありません。")); return; }
     const wrap = document.createElement("div"); wrap.className = "table-wrap";
+    wrap.tabIndex = 0; wrap.setAttribute("role", "region"); wrap.setAttribute("aria-label", title);
     const t = document.createElement("table"), head = document.createElement("thead"), tr = document.createElement("tr"), body = document.createElement("tbody");
     columns.forEach(c => tr.append(node("th", c))); head.append(tr); t.append(head);
     rows.forEach(values => { const r = document.createElement("tr"); values.forEach(v => r.append(node("td", v ?? "未設定"))); body.append(r); });
@@ -46,7 +47,8 @@
     const h = saved ? data.run : data.header;
     $("calculation-result").hidden = false;
     $("result-title").textContent = saved ? `保存した計算 #${h.run_id}` : "計算結果（計算時点）";
-    $("result-metadata").textContent = `${h.shelter_name} ／ ${h.target_people}人・${h.target_days}日 ／ 基準日 ${h.base_date}（日本時間） ／ 計算 ${at(h.calculated_at)}${saved ? ` ／ 保存 ${at(h.saved_at)}` : ""} ／ 倉庫設定${h.setup_state === "complete" ? "完了" : "中"} ／ 計算式 ${h.formula_version}`;
+    const formulaVersion = h.formula_version.replace(/^unfire-/i, "");
+    $("result-metadata").textContent = `${h.shelter_name} ／ ${h.target_people}人・${h.target_days}日 ／ 基準日 ${h.base_date}（日本時間） ／ 計算 ${at(h.calculated_at)}${saved ? ` ／ 保存 ${at(h.saved_at)}` : ""} ／ 倉庫設定${h.setup_state === "complete" ? "完了" : "中"} ／ 計算式の版 ${formulaVersion}`;
     $("result-state").textContent = states[h.result_state];
     $("result-minimum").textContent = `総合：${display(h.min_people, "人")} ／ ${display(h.min_days, "日")}`;
     const period = data.stocks.some(s => s.expires_in_period && Number(s.included_quantity) > 0);
